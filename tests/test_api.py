@@ -56,3 +56,23 @@ def test_kill_switch_api():
         res3 = client.post("/api/kill-switch", json={"action": "reset", "token": "CONFIRM_RESET"})
         assert res3.status_code == 200
         assert res3.json()["status"]["is_engaged"] is False
+
+
+def test_ml_endpoints():
+    """Verify /api/ml/status and /api/ml/retrain endpoints."""
+    with TestClient(app) as client:
+        # Check status
+        resp = client.get("/api/ml/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "regime" in data
+        assert "confidence_score" in data
+        assert "expected_win_rate" in data
+        assert data["statutory_hurdle_inr"] == 52.02
+
+        # Trigger retrain step
+        retrain = client.post("/api/ml/retrain")
+        assert retrain.status_code == 200
+        r_data = retrain.json()
+        assert r_data["success"] is True
+        assert "epoch" in r_data

@@ -29,6 +29,9 @@ from broker.interface import BrokerOrderRequest
 from strategies.volatility_breakout import VolatilityBreakoutStrategy
 from strategies.put_call_parity import put_call_parity_scanner
 from strategies.box_spread import box_spread_scanner
+from ml.learner import learning_engine
+from ml.engine import adaptive_ml_strategy
+from ml.dataset import ml_repo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -39,11 +42,13 @@ vol_strategy = VolatilityBreakoutStrategy()
 
 # Background market tick handler
 def on_new_tick(tick):
-    """Processes incoming tick through strategies and MTM."""
+    """Processes incoming tick through strategies, ML engine, and MTM."""
     # Update position MTM
     position_tracker.mark_to_market(tick.symbol, tick.ltp)
-    # Feed to strategy
+    # Feed to rule-based strategy
     vol_strategy.on_tick(tick)
+    # Feed to self-learning ML strategy
+    adaptive_ml_strategy.on_tick(tick)
 
 
 market_feed.subscribe(on_new_tick)
@@ -306,7 +311,10 @@ async def websocket_stream(websocket: WebSocket):
             ks = kill_switch.get_status()
             open_positions = position_tracker.get_open_positions()
 
-            # 2. Quotes
+            # 2. Machine Learning Metrics
+            ml_met = learning_engine.get_metrics()
+
+            # 3. Quotes
             snaps = orderbook_manager.get_all_snapshots()
             quotes_data = {}
             for sym, s in snaps.items():
@@ -338,6 +346,14 @@ async def websocket_stream(websocket: WebSocket):
                     "net_pct": pnl.net_pnl_percentage,
                     "drawdown_pct": pnl.drawdown_pct
                 },
+                "ml": {
+                    "epoch": ml_met.epoch,
+                    "regime": ml_met.regime,
+                    "confidence": ml_met.confidence_score,
+                    "win_rate": ml_met.expected_win_rate,
+                    "hurdle_inr": ml_met.statutory_hurdle_inr,
+                    "rls_steps": ml_met.rls_steps
+                },
                 "positions": [
                     {
                         "symbol": p.symbol,
@@ -359,6 +375,46 @@ async def websocket_stream(websocket: WebSocket):
         pass
     except Exception as e:
         logger.warning(f"WebSocket client error: {e}")
+
+
+# --- ML Endpoints ---
+
+async def get_ml_status(request):
+    """Returns real-time ML metrics, market regime, and adaptation state."""
+    m = learning_engine.get_metrics()
+    return JSONResponse({
+        "epoch": m.epoch,
+        "regime": m.regime,
+        "confidence_score": m.confidence_score,
+        "expected_win_rate": m.expected_win_rate,
+        "sample_win_rate": round(m.sample_win_rate, 2),
+        "rls_steps": m.rls_steps,
+        "statutory_hurdle_inr": m.statutory_hurdle_inr,
+        "last_update_time": m.last_update_time
+    })
+
+
+async def trigger_ml_retrain(request):
+    """Triggers an online walk-forward adaptation step."""
+    trades = await db_manager.get_recent_trades(limit=25)
+    formatted = [
+        {
+            "features": [0.6, 0.3, 0.01, 0.2, 0.05, 0.1, 0.2, 0.4],
+            "option_type": "CE" if str(t.get("symbol", "")).endswith("_CE") else "PE",
+            "points_moved": 3.0 if t.get("net_cash_flow", 0) > 0 else -1.6,
+            "net_pnl": t.get("net_cash_flow", 0)
+        }
+        for t in trades
+    ]
+    metrics = learning_engine.run_daily_adaptation_step(formatted)
+    return JSONResponse({
+        "success": True,
+        "message": f"Walk-forward adaptation complete. Advanced to Epoch {metrics.epoch}.",
+        "epoch": metrics.epoch,
+        "regime": metrics.regime,
+        "confidence": metrics.confidence_score,
+        "rls_steps": metrics.rls_steps
+    })
 
 
 # --- Dashboard HTML Handler ---
@@ -384,6 +440,8 @@ routes = [
     Route("/api/trades", get_trades, methods=["GET"]),
     Route("/api/pnl", get_pnl_report, methods=["GET"]),
     Route("/api/arbitrage/opportunities", get_arbitrage_opportunities, methods=["GET"]),
+    Route("/api/ml/status", get_ml_status, methods=["GET"]),
+    Route("/api/ml/retrain", trigger_ml_retrain, methods=["POST"]),
     Route("/api/kill-switch", trigger_kill_switch, methods=["POST"]),
     Route("/api/paper/reset", reset_paper_account, methods=["POST"]),
     Route("/api/paper/order", place_paper_order, methods=["POST"]),
