@@ -37,6 +37,7 @@ from global_macro.news_feed import news_feed
 from global_macro.multimodal_fusion import multimodal_fusion
 from global_macro.dataset import macro_dataset
 from global_macro.trainer import macro_trainer
+from execution.auto_engine import auto_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -47,13 +48,31 @@ vol_strategy = VolatilityBreakoutStrategy()
 
 # Background market tick handler
 def on_new_tick(tick):
-    """Processes incoming tick through strategies, ML engine, and MTM."""
-    # Update position MTM
+    """Processes incoming tick through strategies, ML engine, auto-execution, and MTM."""
+    # 1. Update position MTM
     position_tracker.mark_to_market(tick.symbol, tick.ltp)
-    # Feed to rule-based strategy
+    
+    # 2. Feed to rule-based strategy
     vol_strategy.on_tick(tick)
-    # Feed to self-learning ML strategy
-    adaptive_ml_strategy.on_tick(tick)
+
+    # 3. Dynamic Ratchet Trailing Stop & Auto Position Management
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(auto_engine.on_tick(tick))
+    except RuntimeError:
+        pass
+
+    # 4. Feed to self-learning ML strategy
+    signals = adaptive_ml_strategy.on_tick(tick)
+
+    # 5. Autonomous signal execution dispatch
+    if signals and auto_engine.is_auto_trading_enabled:
+        for sig in signals:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(auto_engine.handle_signal(sig))
+            except RuntimeError:
+                pass
 
 
 market_feed.subscribe(on_new_tick)
@@ -375,6 +394,7 @@ async def websocket_stream(websocket: WebSocket):
                     "gift_nifty_gap": macro_snap.gift_nifty_gap_pts,
                     "synthesis": gm_fusion.synthesis_reason
                 },
+                "auto_trade": auto_engine.get_status(),
                 "positions": [
                     {
                         "symbol": p.symbol,
@@ -539,6 +559,31 @@ async def get_macro_dataset(request):
     })
 
 
+async def get_auto_trade_status(request):
+    """Returns autonomous trading engine state and active managed trades."""
+    return JSONResponse(auto_engine.get_status())
+
+
+async def toggle_auto_trade(request):
+    """Enables or disables autonomous trade execution."""
+    try:
+        body = await request.json()
+        enable = body.get("enabled", True)
+        if enable:
+            auto_engine.enable()
+        else:
+            auto_engine.disable()
+        return JSONResponse({"success": True, "is_enabled": auto_engine.is_auto_trading_enabled})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def square_off_all(request):
+    """Mandatory manual or scheduled intraday square-off."""
+    results = await auto_engine.mandatory_intraday_square_off()
+    return JSONResponse({"success": True, "closed_trades": results})
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -568,6 +613,9 @@ routes = [
     Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
     Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),
     Route("/api/global-macro/dataset", get_macro_dataset, methods=["GET"]),
+    Route("/api/auto-trade/status", get_auto_trade_status, methods=["GET"]),
+    Route("/api/auto-trade/toggle", toggle_auto_trade, methods=["POST"]),
+    Route("/api/auto-trade/square-off", square_off_all, methods=["POST"]),
     Route("/api/kill-switch", trigger_kill_switch, methods=["POST"]),
     Route("/api/paper/reset", reset_paper_account, methods=["POST"]),
     Route("/api/paper/order", place_paper_order, methods=["POST"]),

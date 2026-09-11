@@ -127,7 +127,9 @@ class AdaptiveMLStrategy(BaseStrategy):
                 "regime": self.learner.current_regime,
                 "confidence": confidence,
                 "epoch": self.learner.epoch,
-                "outlay_inr": round(ask * self.lot_size, 2)
+                "outlay_inr": round(ask * self.lot_size, 2),
+                "features": list(features),
+                "option_type": option_type
             }
         )
 
