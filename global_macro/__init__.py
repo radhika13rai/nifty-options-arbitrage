@@ -5,6 +5,7 @@ from global_macro.multimodal_fusion import MultimodalFusionResult, MultimodalFus
 from global_macro.news_feed import GlobalNewsFeed, news_feed
 from global_macro.dataset import MacroHistoricalSample, GlobalMacroDatasetRepository, macro_dataset
 from global_macro.trainer import TrainingResult, MultimodalWeightTrainer, macro_trainer
+from global_macro.poller import LiveMacroPoller, live_macro_poller, categorize_headline
 
 __all__ = [
     "MacroIndicatorSnapshot",
@@ -25,4 +26,7 @@ __all__ = [
     "TrainingResult",
     "MultimodalWeightTrainer",
     "macro_trainer",
+    "LiveMacroPoller",
+    "live_macro_poller",
+    "categorize_headline",
 ]

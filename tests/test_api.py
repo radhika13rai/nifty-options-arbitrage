@@ -120,3 +120,45 @@ def test_global_macro_endpoints():
 
         # Reset to neutral
         client.post("/api/global-macro/scenario", json={"scenario": "NEUTRAL"})
+
+
+def test_auto_trade_and_scheduler_endpoints():
+    """Verify auto-trade, macro poller, and scheduler REST endpoints."""
+    from global_macro.poller import live_macro_poller
+    live_macro_poller.enable_mock_mode(True)
+
+    with TestClient(app) as client:
+        # 1. Auto-trade endpoints
+        at_resp = client.get("/api/auto-trade/status")
+        assert at_resp.status_code == 200
+        at_data = at_resp.json()
+        assert "is_enabled" in at_data
+        assert "active_trades" in at_data
+
+        t_resp = client.post("/api/auto-trade/toggle", json={"enabled": False})
+        assert t_resp.status_code == 200
+        assert t_resp.json()["is_enabled"] is False
+
+        # 2. Live macro poller endpoints
+        p_resp = client.post("/api/global-macro/poll")
+        assert p_resp.status_code == 200
+        p_data = p_resp.json()
+        assert p_data["status"] == "SUCCESS"
+
+        st_resp = client.get("/api/global-macro/poller-status")
+        assert st_resp.status_code == 200
+        assert st_resp.json()["poll_count"] >= 1
+
+        # 3. Scheduler endpoints
+        sch_resp = client.get("/api/scheduler/status")
+        assert sch_resp.status_code == 200
+        sch_data = sch_resp.json()
+        assert "current_phase" in sch_data
+        assert "is_trading_permitted" in sch_data
+
+        adv_resp = client.post("/api/scheduler/advance", json={"phase": "MORNING_BREAKOUT"})
+        assert adv_resp.status_code == 200
+        adv_data = adv_resp.json()
+        assert adv_data["success"] is True
+        assert adv_data["status"]["current_phase"] == "MORNING_BREAKOUT"
+        assert adv_data["status"]["is_trading_permitted"] is True

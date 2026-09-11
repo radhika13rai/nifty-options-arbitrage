@@ -37,7 +37,9 @@ from global_macro.news_feed import news_feed
 from global_macro.multimodal_fusion import multimodal_fusion
 from global_macro.dataset import macro_dataset
 from global_macro.trainer import macro_trainer
+from global_macro.poller import live_macro_poller
 from execution.auto_engine import auto_engine
+from scheduler.daily_routine import market_scheduler, MarketPhase
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -395,6 +397,7 @@ async def websocket_stream(websocket: WebSocket):
                     "synthesis": gm_fusion.synthesis_reason
                 },
                 "auto_trade": auto_engine.get_status(),
+                "scheduler": market_scheduler.get_status(),
                 "positions": [
                     {
                         "symbol": p.symbol,
@@ -584,6 +587,37 @@ async def square_off_all(request):
     return JSONResponse({"success": True, "closed_trades": results})
 
 
+async def poll_macro_now(request):
+    """Triggers an immediate live macro and RSS refresh."""
+    res = await live_macro_poller.poll_once()
+    return JSONResponse(res)
+
+
+async def get_poller_status(request):
+    """Returns poller telemetry."""
+    return JSONResponse(live_macro_poller.get_status())
+
+
+async def get_scheduler_status(request):
+    """Returns intraday routine scheduler telemetry."""
+    return JSONResponse(market_scheduler.get_status())
+
+
+async def advance_scheduler_phase(request):
+    """Advances or sets the market routine phase (simulated or manual override)."""
+    try:
+        body = await request.json()
+        phase_str = body.get("phase")
+        if not phase_str:
+            return JSONResponse({"error": "Phase is required"}, status_code=400)
+        target_phase = MarketPhase(phase_str)
+        market_scheduler.set_simulated_mode(True)
+        res = await market_scheduler.execute_phase_transition(target_phase)
+        return JSONResponse({"success": True, "transition": res, "status": market_scheduler.get_status()})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -613,6 +647,10 @@ routes = [
     Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
     Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),
     Route("/api/global-macro/dataset", get_macro_dataset, methods=["GET"]),
+    Route("/api/global-macro/poll", poll_macro_now, methods=["POST"]),
+    Route("/api/global-macro/poller-status", get_poller_status, methods=["GET"]),
+    Route("/api/scheduler/status", get_scheduler_status, methods=["GET"]),
+    Route("/api/scheduler/advance", advance_scheduler_phase, methods=["POST"]),
     Route("/api/auto-trade/status", get_auto_trade_status, methods=["GET"]),
     Route("/api/auto-trade/toggle", toggle_auto_trade, methods=["POST"]),
     Route("/api/auto-trade/square-off", square_off_all, methods=["POST"]),
@@ -636,13 +674,21 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: Starlette):
-    """Initializes SQLite schema and starts background market feed."""
+    """Initializes SQLite schema and starts background services."""
     logger.info("Initializing database...")
     await db_manager.async_init_db()
     logger.info("Starting background market feed...")
     await market_feed.start()
+    logger.info("Starting live global macro & RSS poller...")
+    await live_macro_poller.start()
+    logger.info("Starting market routine scheduler...")
+    await market_scheduler.start()
     logger.info("System startup complete. Ready for paper trading.")
     yield
+    logger.info("Stopping market scheduler...")
+    await market_scheduler.stop()
+    logger.info("Stopping live macro poller...")
+    await live_macro_poller.stop()
     logger.info("Stopping market feed...")
     await market_feed.stop()
     logger.info("System shutdown complete.")
