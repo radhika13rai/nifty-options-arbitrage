@@ -1,0 +1,8 @@
+# NIFTY Options Arbitrage & Trading System Dependencies
+# Python 3.14 compatible, lightweight, zero compilation required
+
+starlette>=0.46.0
+uvicorn>=0.30.0
+websockets>=13.0.0
+python-dotenv>=1.0.0
+pytest>=8.0.0

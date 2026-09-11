@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NIFTY Options Arbitrage & Trading HUD</title>
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --card-bg: #11151f;
+      --card-border: #1e2638;
+      --text-main: #f0f4fc;
+      --text-muted: #7e8b9b;
+      --accent-cyan: #00e5ff;
+      --accent-green: #00ff88;
+      --accent-red: #ff3366;
+      --accent-amber: #ffaa00;
+      --accent-purple: #9d4edd;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      padding-bottom: 70px;
+    }
+
+    /* Top Bar Header */
+    header {
+      background-color: rgba(17, 21, 31, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 10px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-mode {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    /* Tabs Navigation for Dual View */
+    .tab-bar {
+      display: flex;
+      background: #0d111a;
+      border-bottom: 1px solid var(--card-border);
+      padding: 4px 8px;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--accent-cyan);
+      border: 1px solid var(--card-border);
+    }
+
+    /* Container & Layout */
+    .container {
+      padding: 12px 14px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Metrics Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .card-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .card-val {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .val-profit { color: var(--accent-green); }
+    .val-loss { color: var(--accent-red); }
+    .val-cyan { color: var(--accent-cyan); }
+    .val-amber { color: var(--accent-amber); }
+
+    /* Spot Ticker Banner */
+    .spot-ticker {
+      background: linear-gradient(135deg, #121929, #172136);
+      border: 1px solid #23314d;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .spot-price {
+      font-size: 24px;
+      font-weight: 800;
+      font-family: monospace;
+      color: #fff;
+    }
+
+    /* Action Buttons */
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 6px;
+      border: none;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+
+    .btn:active { opacity: 0.8; }
+    .btn-kill {
+      background: var(--accent-red);
+      color: #fff;
+    }
+    .btn-reset {
+      background: #222c3d;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-buy {
+      background: var(--accent-green);
+      color: #07090e;
+    }
+
+    /* Section Headings */
+    .section-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Table / List Items */
+    .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .list-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .item-sym {
+      font-weight: 700;
+      font-size: 13px;
+      font-family: monospace;
+    }
+
+    .item-detail {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .tag {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      display: inline-block;
+    }
+
+    .tag-feasible {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green);
+    }
+
+    .tag-infeasible {
+      background: rgba(255, 51, 102, 0.15);
+      color: var(--accent-red);
+      border: 1px solid var(--accent-red);
+    }
+
+    /* Warning Banner */
+    .alert-box {
+      background: rgba(255, 51, 102, 0.1);
+      border: 1px solid var(--accent-red);
+      color: #ff99aa;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand-title">
+      <span>NIFTY HUD</span>
+      <span class="badge-mode">PAPER V1</span>
+    </div>
+    <div class="header-status">
+      <span id="ws-latency" style="font-size: 11px; color: var(--text-muted); font-family: monospace;">-- ms</span>
+      <div class="pulse-dot" id="live-dot"></div>
+    </div>
+  </header>
+
+  <!-- Dual View Switcher (Optimized for Android Viewport) -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-trading')">📱 Trading HUD</button>
+    <button class="tab-btn" onclick="switchTab('tab-arbitrage')">⚡ Arbitrage & Risk</button>
+    <button class="tab-btn" onclick="switchTab('tab-orders')">📋 Orders & Trades</button>
+  </div>
+
+  <div class="container">
+    
+    <!-- Kill Switch Alert Banner -->
+    <div id="kill-alert" class="alert-box">
+      ⚠️ <strong>KILL SWITCH ENGAGED!</strong> <span id="kill-reason"></span>
+      <button onclick="resetKillSwitch()" style="margin-top:6px; padding:4px 8px; background:var(--accent-red); color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Reset Kill Switch</button>
+    </div>
+
+    <!-- TAB 1: MAIN TRADING HUD -->
+    <div id="tab-trading" class="tab-content active">
+      <!-- Spot Ticker -->
+      <div class="spot-ticker">
+        <div>
+          <div class="card-label">NIFTY 50 INDEX (LOT SIZE: 65)</div>
+          <div class="spot-price" id="spot-price">24,500.00</div>
+        </div>
+        <div style="text-align: right;">
+          <div class="card-label">DATA FEED</div>
+          <div style="font-weight: bold; color: var(--accent-cyan);" id="feed-mode">SIMULATED REPLAY</div>
+        </div>
+      </div>
+
+      <!-- Financial Metrics -->
+      <div class="metric-grid">
+        <div class="card">
+          <div class="card-label">Virtual Cash</div>
+          <div class="card-val val-cyan" id="cash-val">₹3,000.00</div>
+          <div class="card-sub">Capital Floor: ₹2,000.00</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Net P&L (After Costs)</div>
+          <div class="card-val" id="net-pnl">₹0.00</div>
+          <div class="card-sub" id="pnl-pct">0.00%</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Statutory Friction</div>
+          <div class="card-val val-amber" id="total-fees">₹0.00</div>
+          <div class="card-sub">STT, GST, Brokerage</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Portfolio Value</div>
+          <div class="card-val" id="port-val">₹3,000.00</div>
+          <div class="card-sub" id="drawdown-val">Drawdown: 0.0%</div>
+        </div>
+      </div>
+
+      <!-- Action Controls -->
+      <div class="action-bar">
+        <button class="btn btn-kill" onclick="engageKillSwitch()">🛑 EMERGENCY KILL</button>
+        <button class="btn btn-reset" onclick="resetPaperAccount()">🔄 RESET ₹3,000</button>
+      </div>
+
+      <!-- Active Positions -->
+      <div class="section-title">
+        <span>Active Open Positions</span>
+        <span id="pos-count" style="color: var(--accent-cyan);">0</span>
+      </div>
+      <div class="item-list" id="positions-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted);">No open positions. Ready for signals.</div>
+      </div>
+
+      <!-- Live Option Chain Quotes -->
+      <div class="section-title">
+        <span>Active Option Quotes (65 Qty)</span>
+        <button onclick="testBuyOrder()" style="background:#1a2333; color:var(--accent-cyan); border:1px solid var(--card-border); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">⚡ Test Paper Buy (1 Lot)</button>
+      </div>
+      <div class="item-list" id="quotes-list">
+        <!-- Dynamically injected quotes -->
+      </div>
+    </div>
+
+    <!-- TAB 2: ARBITRAGE & SYSTEM HEALTH -->
+    <div id="tab-arbitrage" class="tab-content">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-label">₹3,000 Capital Feasibility Proof</div>
+        <div style="font-size: 12px; color: #b0c0d8; margin-top: 4px;">
+          Put-Call Parity and Box Spreads require shorting options / synthetic futures. Under SEBI/NSE SPAN margins, shorting 1 lot (65 units) requires <strong>₹1,20,000 - ₹1,50,000</strong>.
+          The engine mathematically flags these as <span class="tag tag-infeasible">CAPITAL_INFEASIBLE</span> and prevents execution.
+        </div>
+      </div>
+
+      <div class="section-title">
+        <span>Arbitrage & Parity Scanner</span>
+        <button onclick="refreshArbitrage()" style="background:#1a2333; color:var(--accent-cyan); border:1px solid var(--card-border); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">Scan Now</button>
+      </div>
+      <div class="item-list" id="arbitrage-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted);">Scanning orderbooks for synthetic mispricing...</div>
+      </div>
+
+      <!-- Risk Boundaries -->
+      <div class="section-title" style="margin-top: 18px;">
+        <span>Active Risk Boundaries</span>
+      </div>
+      <div class="metric-grid">
+        <div class="card">
+          <div class="card-label">Max Risk / Trade</div>
+          <div class="card-val val-amber">₹150.00</div>
+          <div class="card-sub">Hard Stop Invariant</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Daily Loss Ceiling</div>
+          <div class="card-val val-loss">₹300.00</div>
+          <div class="card-sub">Auto Kill-Switch Halt</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Max Allowed Lots</div>
+          <div class="card-val">1 Lot (65)</div>
+          <div class="card-sub">NSE Circular Compliant</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Quote Staleness Limit</div>
+          <div class="card-val val-cyan">1,500 ms</div>
+          <div class="card-sub">Fail-Closed Guard</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: AUDITABLE ORDERS & TRADES -->
+    <div id="tab-orders" class="tab-content">
+      <div class="section-title">
+        <span>Recent Paper Orders</span>
+        <button onclick="loadOrders()" style="background:#1a2333; color:var(--accent-cyan); border:1px solid var(--card-border); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">Refresh</button>
+      </div>
+      <div class="item-list" id="orders-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted);">No orders recorded yet.</div>
+      </div>
+
+      <div class="section-title" style="margin-top: 18px;">
+        <span>Executed Trades (With Statutory Taxes)</span>
+      </div>
+      <div class="item-list" id="trades-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted);">No executed trades yet.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+      if (tabId === 'tab-arbitrage') refreshArbitrage();
+      if (tabId === 'tab-orders') { loadOrders(); loadTrades(); }
+    }
+
+    // WebSocket Stream Connection
+    let ws;
+    let lastPing = Date.now();
+
+    function initWebSocket() {
+      const loc = window.location;
+      const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${loc.host}/ws/stream`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("WebSocket connected.");
+        document.getElementById('live-dot').style.background = "var(--accent-green)";
+      };
+
+      ws.onmessage = (evt) => {
+        const now = Date.now();
+        document.getElementById('ws-latency').innerText = `${now - lastPing} ms`;
+        lastPing = now;
+
+        const data = JSON.parse(evt.data);
+        updateUI(data);
+      };
+
+      ws.onclose = () => {
+        document.getElementById('live-dot').style.background = "var(--accent-red)";
+        setTimeout(initWebSocket, 2000);
+      };
+    }
+
+    function updateUI(data) {
+      // 1. Kill switch
+      const ksAlert = document.getElementById('kill-alert');
+      if (data.kill_switch && data.kill_switch.is_engaged) {
+        ksAlert.style.display = 'block';
+        document.getElementById('kill-reason').innerText = data.kill_switch.reason;
+      } else {
+        ksAlert.style.display = 'none';
+      }
+
+      // 2. PnL & Balances
+      if (data.pnl) {
+        document.getElementById('cash-val').innerText = `₹${data.pnl.cash.toFixed(2)}`;
+        document.getElementById('port-val').innerText = `₹${data.pnl.total_val.toFixed(2)}`;
+        document.getElementById('total-fees').innerText = `₹${data.pnl.fees.toFixed(2)}`;
+        
+        const netEl = document.getElementById('net-pnl');
+        netEl.innerText = `₹${data.pnl.net_pnl.toFixed(2)}`;
+        netEl.className = `card-val ${data.pnl.net_pnl >= 0 ? 'val-profit' : 'val-loss'}`;
+        
+        const pctEl = document.getElementById('pnl-pct');
+        pctEl.innerText = `${data.pnl.net_pct.toFixed(2)}%`;
+        pctEl.className = `card-sub ${data.pnl.net_pct >= 0 ? 'val-profit' : 'val-loss'}`;
+        
+        document.getElementById('drawdown-val').innerText = `Drawdown: ${data.pnl.drawdown_pct.toFixed(1)}%`;
+      }
+
+      // 3. Quotes
+      if (data.quotes) {
+        const spot = data.quotes['NIFTY_SPOT'];
+        if (spot) {
+          document.getElementById('spot-price').innerText = spot.mid.toFixed(2);
+        }
+
+        const qList = document.getElementById('quotes-list');
+        let html = '';
+        for (const [sym, q] of Object.entries(data.quotes)) {
+          if (sym === 'NIFTY_SPOT') continue;
+          const isCall = sym.endsWith('_CE');
+          html += `
+            <div class="list-item">
+              <div>
+                <div class="item-sym" style="color:${isCall ? 'var(--accent-cyan)' : 'var(--accent-purple)'}">
+                  ${sym}
+                </div>
+                <div class="item-detail">
+                  Bid: ₹${q.bid.toFixed(2)} | Ask: ₹${q.ask.toFixed(2)} | Imbal: ${(q.imbalance * 100).toFixed(0)}%
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:bold; font-family:monospace;">₹${q.mid.toFixed(2)}</div>
+                <button onclick="orderOption('${sym}', 'BUY', ${q.ask})" style="margin-top:2px; padding:2px 8px; background:#182820; color:var(--accent-green); border:1px solid var(--accent-green); border-radius:3px; font-size:10px; cursor:pointer;">BUY 65</button>
+              </div>
+            </div>
+          `;
+        }
+        qList.innerHTML = html;
+      }
+
+      // 4. Positions
+      if (data.positions) {
+        document.getElementById('pos-count').innerText = data.positions.length;
+        const pList = document.getElementById('positions-list');
+        if (data.positions.length === 0) {
+          pList.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No open positions. Ready for signals.</div>`;
+        } else {
+          let posHtml = '';
+          data.positions.forEach(p => {
+            posHtml += `
+              <div class="list-item">
+                <div>
+                  <div class="item-sym">${p.side} ${p.quantity}x ${p.symbol}</div>
+                  <div class="item-detail">Avg: ₹${p.avg.toFixed(2)} | LTP: ₹${p.ltp.toFixed(2)} | Fees: ₹${p.costs.toFixed(2)}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-weight:bold; font-family:monospace;" class="${p.unrealized >= 0 ? 'val-profit' : 'val-loss'}">
+                    ₹${p.unrealized.toFixed(2)}
+                  </div>
+                  <button onclick="orderOption('${p.symbol}', 'SELL', ${p.ltp})" style="margin-top:2px; padding:2px 8px; background:#33141f; color:var(--accent-red); border:1px solid var(--accent-red); border-radius:3px; font-size:10px; cursor:pointer;">EXIT</button>
+                </div>
+              </div>
+            `;
+          });
+          pList.innerHTML = posHtml;
+        }
+      }
+    }
+
+    // Interactive Actions
+    async function engageKillSwitch() {
+      if (!confirm("Are you sure you want to engage the Emergency Kill Switch?")) return;
+      await fetch('/api/kill-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'engage', reason: 'User engaged from Web HUD' })
+      });
+    }
+
+    async function resetKillSwitch() {
+      await fetch('/api/kill-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset', token: 'CONFIRM_RESET' })
+      });
+    }
+
+    async function resetPaperAccount() {
+      if (!confirm("Reset paper account virtual balance to ₹3,000?")) return;
+      await fetch('/api/paper/reset', { method: 'POST' });
+    }
+
+    async function orderOption(symbol, side, price) {
+      const resp = await fetch('/api/paper/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, side, price, quantity: 65 })
+      });
+      const res = await resp.json();
+      if (res.error) alert(res.error);
+      else if (res.status === 'REJECTED') alert(`Order Rejected by Risk Engine: ${res.rejection_reason}`);
+    }
+
+    async function testBuyOrder() {
+      // Pick first available option contract and buy 1 lot
+      const quotesResp = await fetch('/api/quotes');
+      const quotes = await quotesResp.json();
+      for (const [sym, q] of Object.entries(quotes)) {
+        if (sym.includes('_CE') && q.best_ask < 35.0) {
+          orderOption(sym, 'BUY', q.best_ask);
+          return;
+        }
+      }
+      alert("No suitable option under ₹35 found in active quotes.");
+    }
+
+    async function refreshArbitrage() {
+      const resp = await fetch('/api/arbitrage/opportunities');
+      const data = await resp.json();
+      const listEl = document.getElementById('arbitrage-list');
+      
+      if (!data.opportunities || data.opportunities.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No theoretical arbitrage detected at current spot.</div>`;
+        return;
+      }
+
+      let html = '';
+      data.opportunities.forEach(o => {
+        html += `
+          <div class="list-item">
+            <div>
+              <div class="item-sym">${o.strategy}</div>
+              <div class="item-detail">${o.symbol} | Action: ${o.action}</div>
+              <div class="item-detail" style="margin-top:4px; color:#ff99aa;">${o.infeasibility_reason || 'Feasible'}</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="tag ${o.is_capital_feasible ? 'tag-feasible' : 'tag-infeasible'}">
+                ${o.is_capital_feasible ? 'FEASIBLE' : 'CAPITAL INFEASIBLE'}
+              </span>
+            </div>
+          </div>
+        `;
+      });
+      listEl.innerHTML = html;
+    }
+
+    async function loadOrders() {
+      const resp = await fetch('/api/orders');
+      const orders = await resp.json();
+      const oList = document.getElementById('orders-list');
+      if (orders.length === 0) {
+        oList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">No orders recorded.</div>`;
+        return;
+      }
+      let html = '';
+      orders.forEach(o => {
+        html += `
+          <div class="list-item">
+            <div>
+              <div class="item-sym">${o.side} ${o.quantity}x ${o.symbol}</div>
+              <div class="item-detail">Status: <strong>${o.status}</strong> | ID: ${o.order_id}</div>
+              ${o.rejection_reason ? `<div class="item-detail" style="color:var(--accent-red);">${o.rejection_reason}</div>` : ''}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:monospace;">₹${o.fill_price ? o.fill_price.toFixed(2) : o.requested_price.toFixed(2)}</div>
+              <div class="item-detail">Fees: ₹${o.total_costs.toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      });
+      oList.innerHTML = html;
+    }
+
+    async function loadTrades() {
+      const resp = await fetch('/api/trades');
+      const trades = await resp.json();
+      const tList = document.getElementById('trades-list');
+      if (trades.length === 0) {
+        tList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">No trades executed.</div>`;
+        return;
+      }
+      let html = '';
+      trades.forEach(t => {
+        html += `
+          <div class="list-item">
+            <div>
+              <div class="item-sym">${t.side} ${t.quantity}x ${t.symbol}</div>
+              <div class="item-detail">Turnover: ₹${t.turnover.toFixed(2)} | Brk: ₹${t.brokerage} | STT: ₹${t.stt} | GST: ₹${t.gst}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:monospace; font-weight:bold;">₹${t.price.toFixed(2)}</div>
+              <div class="item-detail val-loss">Fee: ₹${t.total_costs.toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      });
+      tList.innerHTML = html;
+    }
+
+    // Start on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      initWebSocket();
+    });
+  </script>
+</body>
+</html>
