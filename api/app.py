@@ -5,6 +5,7 @@ Provides real-time endpoints for Android HUD and desktop trading monitoring.
 """
 
 import asyncio
+import dataclasses
 import json
 import logging
 import time
@@ -618,6 +619,20 @@ async def advance_scheduler_phase(request):
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+async def get_drift_status(request):
+    """Returns AI model drift telemetry and rollback status."""
+    from ml.drift_guard import drift_guard
+    status = drift_guard.check_drift()
+    return JSONResponse(dataclasses.asdict(status))
+
+
+async def get_stream_status(request):
+    """Returns continuous live market data stream health."""
+    from market_data.stream import market_streamer
+    health = market_streamer.get_health()
+    return JSONResponse(dataclasses.asdict(health))
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -643,6 +658,8 @@ routes = [
     Route("/api/arbitrage/opportunities", get_arbitrage_opportunities, methods=["GET"]),
     Route("/api/ml/status", get_ml_status, methods=["GET"]),
     Route("/api/ml/retrain", trigger_ml_retrain, methods=["POST"]),
+    Route("/api/ml/drift", get_drift_status, methods=["GET"]),
+    Route("/api/market-stream/status", get_stream_status, methods=["GET"]),
     Route("/api/global-macro/status", get_global_macro_status, methods=["GET"]),
     Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
     Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),

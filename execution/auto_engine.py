@@ -19,6 +19,7 @@ from market_data.normalizer import MarketTick
 from portfolio.positions import position_tracker
 from costs.transaction_costs import cost_engine
 from ml.learner import learning_engine
+from ml.drift_guard import drift_guard
 from database.db import db_manager
 
 logger = logging.getLogger("AutoExecutionEngine")
@@ -244,6 +245,14 @@ class AutoExecutionEngine:
             actual_points_moved=points_moved,
             actual_net_pnl=net_pnl
         )
+
+        # Monitor Model Drift & Automatic Rollback Guard
+        drift_guard.record_trade(
+            net_pnl=net_pnl,
+            gross_pnl=gross_pnl,
+            points_moved=points_moved
+        )
+        await drift_guard.evaluate_and_enforce()
 
         # Audit log into SQLite
         await db_manager.record_audit_log(

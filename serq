@@ -254,6 +254,48 @@ cmd_kill() {
     echo -e "${C_EMERALD}Response: $RESP${C_RESET}"
 }
 
+cmd_drift() {
+    banner
+    python3 -c "
+from ml.drift_guard import drift_guard
+status = drift_guard.check_drift()
+print('\033[1m  AI MODEL DRIFT & OVERFITTING TELEMETRY:\033[0m')
+drift_badge = '\033[38;5;197m● DRIFT DETECTED\033[0m' if status.is_drift_detected else '\033[38;5;48m● HEALTHY\033[0m'
+print(f'    Drift Status:       {drift_badge}')
+print(f'    Rolling Win Rate:   {status.rolling_win_rate*100:.1f}% (Target: \033[38;5;48m>= 55.0%\033[0m | Critical Floor: 40.0%)')
+print(f'    Rolling Profit Fact:{status.rolling_profit_factor:.2f}')
+print(f'    Rolling Sharpe:     {status.rolling_sharpe:.2f}')
+print(f'    Consecutive Losses: {status.consecutive_losses} (Streak Limit: 3)')
+print(f'    Trades in Window:   {status.total_trades_analyzed}')
+print(f'    Total Rollbacks:    {drift_guard.rollback_count}')
+if status.drift_reasons:
+    print('    Drift Violations:')
+    for r in status.drift_reasons:
+        print(f'      • \033[38;5;197m{r}\033[0m')
+else:
+    print('    Guard Invariant:    \033[38;5;48mZero statistical drift detected\033[0m')
+"
+}
+
+cmd_feed() {
+    banner
+    python3 -c "
+from market_data.stream import market_streamer
+h = market_streamer.get_health()
+print('\033[1m  LIVE MARKET DATA STREAM TELEMETRY:\033[0m')
+conn_badge = '\033[38;5;48m● ACTIVE\033[0m' if h.is_connected else '\033[38;5;214m⏸ STANDBY\033[0m'
+print(f'    Stream Status:      {conn_badge}')
+print(f'    Feed Mode:          \033[38;5;51m{h.mode}\033[0m')
+print(f'    Ticks Ingested:     {h.total_ticks_received}')
+print(f'    Stale Dropped:      {h.stale_ticks_dropped} (> 1,500ms max latency)')
+print(f'    Feed Latency:       {h.latency_ms:.1f} ms')
+print(f'    Reconnect Attempts: {h.reconnect_count}')
+print(f'    Active Subscriptions:{len(h.subscribed_symbols)}')
+for s in h.subscribed_symbols[:5]:
+    print(f'      • {s}')
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
@@ -265,9 +307,11 @@ cmd_help() {
     echo -e "  ${C_EMERALD}restart${C_RESET}     Restart the server"
     echo -e "  ${C_EMERALD}status${C_RESET}      Display real-time trading telemetry and account health"
     echo -e "  ${C_EMERALD}logs${C_RESET}        Follow live application server logs"
-    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 63-test regression suite"
+    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 71-test regression suite"
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
+    echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
+    echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
     echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
     echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
@@ -298,6 +342,12 @@ case "$1" in
         ;;
     backtest)
         cmd_backtest
+        ;;
+    drift)
+        cmd_drift
+        ;;
+    feed)
+        cmd_feed
         ;;
     square-off)
         cmd_square_off
