@@ -162,3 +162,15 @@ def test_auto_trade_and_scheduler_endpoints():
         assert adv_data["success"] is True
         assert adv_data["status"]["current_phase"] == "MORNING_BREAKOUT"
         assert adv_data["status"]["is_trading_permitted"] is True
+
+
+def test_slippage_telemetry_endpoint():
+    """Verify /api/costs/slippage returns queue depth and slippage statistics."""
+    with TestClient(app) as client:
+        resp = client.get("/api/costs/slippage")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "default_queue_priority" in data
+        assert "avg_slippage_points" in data
+        assert "avg_slippage_inr" in data
+        assert "total_fills_analyzed" in data

@@ -296,6 +296,24 @@ for s in h.subscribed_symbols[:5]:
 "
 }
 
+cmd_slippage() {
+    banner
+    python3 -c "
+from costs.slippage import slippage_model
+t = slippage_model.get_telemetry()
+print('\033[1m  MICROSTRUCTURE SLIPPAGE & QUEUE PRIORITY ENGINE (PAPER V2):\033[0m')
+print(f'    FIFO Queue Priority: \033[38;5;51m{t[\"default_queue_priority\"]}\033[0m depth ahead')
+print(f'    Fills Analyzed:     {t[\"total_fills_analyzed\"]}')
+print(f'    Avg Slippage (Pts): \033[38;5;214m{t[\"avg_slippage_points\"]:.3f} pts\033[0m')
+print(f'    Avg Slippage (INR): ₹{t[\"avg_slippage_inr\"]:.2f} per lot (65 units)')
+eff = t.get('avg_effective_spread', 0.30)
+print(f'    Effective Spread:   {eff:.3f} pts')
+print(f'    Depth Walking:      \033[38;5;48mEnabled\033[0m (VWAP partial fills)')
+print(f'    Adverse Selection:  \033[38;5;48mEnabled\033[0m (10% drag in fast markets)')
+print(f'    Exhaustion Penalty: \033[38;5;48m1.50 pts\033[0m on book depletion')
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
@@ -307,11 +325,12 @@ cmd_help() {
     echo -e "  ${C_EMERALD}restart${C_RESET}     Restart the server"
     echo -e "  ${C_EMERALD}status${C_RESET}      Display real-time trading telemetry and account health"
     echo -e "  ${C_EMERALD}logs${C_RESET}        Follow live application server logs"
-    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 71-test regression suite"
+    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete test suite"
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
     echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
     echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
+    echo -e "  ${C_EMERALD}slippage${C_RESET}    Display orderbook queue priority & slippage telemetry"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
     echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
     echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
@@ -348,6 +367,9 @@ case "$1" in
         ;;
     feed)
         cmd_feed
+        ;;
+    slippage)
+        cmd_slippage
         ;;
     square-off)
         cmd_square_off

@@ -633,6 +633,12 @@ async def get_stream_status(request):
     return JSONResponse(dataclasses.asdict(health))
 
 
+async def get_slippage_status(request):
+    """Returns empirical microstructure slippage and queue priority telemetry."""
+    from costs.slippage import slippage_model
+    return JSONResponse(slippage_model.get_telemetry())
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -660,6 +666,7 @@ routes = [
     Route("/api/ml/retrain", trigger_ml_retrain, methods=["POST"]),
     Route("/api/ml/drift", get_drift_status, methods=["GET"]),
     Route("/api/market-stream/status", get_stream_status, methods=["GET"]),
+    Route("/api/costs/slippage", get_slippage_status, methods=["GET"]),
     Route("/api/global-macro/status", get_global_macro_status, methods=["GET"]),
     Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
     Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),
