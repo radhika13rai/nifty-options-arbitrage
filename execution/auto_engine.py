@@ -150,7 +150,7 @@ class AutoExecutionEngine:
         trade.last_update_time_ms = now_ms
         trade.highest_price_seen = max(trade.highest_price_seen, current_price)
 
-        delta_pts = current_price - trade.entry_price
+        delta_pts = round(current_price - trade.entry_price, 2)
         elapsed_sec = (now_ms - trade.entry_time_ms) / 1000.0
 
         # --- RULE 1: Stop-Loss Breach (Hard stop or ratcheted trailing stop) ---

@@ -74,8 +74,8 @@ class PreTradeRiskEngine:
                 reason=f"Rejected: Daily loss ₹{daily_realized_loss_inr:.2f} reached ceiling of ₹{self.limits.max_daily_loss_inr:.2f}"
             )
 
-        # 3. Capital floor check
-        if current_cash_inr < self.limits.capital_floor_inr:
+        # 3. Capital floor check (enforced on new BUY entries; exits are always allowed)
+        if order.side == "BUY" and current_cash_inr < self.limits.capital_floor_inr:
             return RiskCheckResult(
                 passed=False,
                 violations=["CAPITAL_BELOW_FLOOR"],
