@@ -41,6 +41,10 @@ class PositionTracker:
     def __init__(self):
         self._positions: dict[str, Position] = {}
 
+    def reset(self) -> None:
+        """Clears all open and historical positions."""
+        self._positions.clear()
+
     def apply_fill(
         self,
         symbol: str,

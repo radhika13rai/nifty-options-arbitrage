@@ -130,6 +130,16 @@ class AdaptiveLearningEngine:
         # Strong imbalance and positive EMA slope are rewarded
         self.rls.w = [1.8, 1.2, -2.5, 0.9, 1.5, 0.6, 0.4, 0.5]
 
+    def reset(self):
+        """Resets learner to initial baseline priors."""
+        self.rls = RecursiveLeastSquares(dim=8, lam=0.98)
+        self.call_sampler = BayesianThompsonSampler(alpha_prior=4.0, beta_prior=3.0)
+        self.put_sampler = BayesianThompsonSampler(alpha_prior=4.0, beta_prior=3.0)
+        self.epoch = 1
+        self.current_regime = "TRENDING_BULL"
+        self.last_adaptation_time = time.time()
+        self._init_warm_weights()
+
     def classify_regime(self, spot_ema_slope: float, spot_atr: float) -> MarketRegime:
         """Classifies the market volatility regime."""
         if spot_atr > 60.0:

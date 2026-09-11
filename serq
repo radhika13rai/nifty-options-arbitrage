@@ -220,6 +220,12 @@ cmd_test() {
     python3 -m pytest tests/ -v
 }
 
+cmd_backtest() {
+    banner
+    echo -e "${C_GRAY}Executing 10-Day Historical Walk-Forward Simulation (Paper V2)...${C_RESET}\n"
+    python3 -m simulation.walk_forward
+}
+
 cmd_simulate() {
     banner
     echo -e "${C_GRAY}Running offline trading day simulation...${C_RESET}\n"
@@ -260,7 +266,8 @@ cmd_help() {
     echo -e "  ${C_EMERALD}status${C_RESET}      Display real-time trading telemetry and account health"
     echo -e "  ${C_EMERALD}logs${C_RESET}        Follow live application server logs"
     echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 56-test regression suite"
-    echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline simulated trading day"
+    echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
+    echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
     echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
     echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
@@ -288,6 +295,9 @@ case "$1" in
         ;;
     simulate)
         cmd_simulate
+        ;;
+    backtest)
+        cmd_backtest
         ;;
     square-off)
         cmd_square_off

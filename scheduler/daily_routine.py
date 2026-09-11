@@ -177,18 +177,8 @@ class MarketRoutineScheduler:
             action_summary["actions"].append("RUN_WALK_FORWARD_ADAPTATION")
             auto_engine.disable()
             
-            # 1. Walk-forward step on today's trades
-            recent_trades = await db_manager.get_recent_trades(limit=30)
-            formatted = [
-                {
-                    "features": [0.6, 0.3, 0.01, 0.2, 0.05, 0.1, 0.2, 0.4],
-                    "option_type": "CE" if str(t.get("symbol", "")).endswith("_CE") else "PE",
-                    "points_moved": 3.0 if t.get("net_cash_flow", 0) > 0 else -1.5,
-                    "net_pnl": t.get("net_cash_flow", 0)
-                }
-                for t in recent_trades
-            ]
-            adapt_metrics = learning_engine.run_daily_adaptation_step(formatted)
+            # 1. Walk-forward epoch progression (trades are learned in real-time on exit)
+            adapt_metrics = learning_engine.run_daily_adaptation_step([])
             action_summary["adaptation_epoch"] = adapt_metrics.epoch
 
             # 2. Retrain multimodal weights on macro historical set
