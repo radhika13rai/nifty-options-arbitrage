@@ -5,27 +5,30 @@ html_content = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>CODEQUERY SerQ — NIFTY Options Algo & Research HUD</title>
+  <title>NIFTY Options Arbitrage & Research HUD — SerQ Theme</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-space: #06090e;
-      --bg-stage: radial-gradient(circle at 65% 35%, rgba(0, 230, 118, 0.10) 0%, rgba(6, 9, 14, 0) 65%), #06090e;
-      --bg-card: rgba(12, 17, 25, 0.92);
+      --bg-stage: radial-gradient(circle at 75% 25%, rgba(0, 230, 118, 0.08) 0%, rgba(6, 9, 14, 0) 55%),
+                  radial-gradient(circle at 20% 70%, rgba(0, 230, 118, 0.05) 0%, rgba(6, 9, 14, 0) 65%), #06090e;
+      --bg-card: rgba(13, 19, 28, 0.94);
       --bg-card-inner: #090e15;
+      --card-border: rgba(26, 38, 54, 0.85);
       --emerald: #00e676;
       --emerald-dark: #00b050;
       --emerald-dim: rgba(0, 230, 118, 0.12);
-      --emerald-border: rgba(0, 230, 118, 0.32);
+      --emerald-border: rgba(0, 230, 118, 0.28);
       --emerald-glow: rgba(0, 230, 118, 0.45);
       --text-white: #ffffff;
       --text-soft: #cbd5e1;
       --text-muted: #64748b;
-      --card-border: #182232;
       --accent-red: #ff3366;
       --accent-amber: #ffb300;
+      --accent-purple: #c084fc;
+      --accent-cyan: #00e5ff;
     }
 
     * {
@@ -40,12 +43,14 @@ html_content = """<!DOCTYPE html>
       background: var(--bg-stage);
       color: var(--text-white);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
+      font-size: 13px;
+      line-height: 1.4;
+      padding-bottom: 70px;
       position: relative;
+      overflow-x: hidden;
     }
 
+    /* Ambient Background Mesh */
     .ambient-glow-mesh {
       position: fixed;
       top: 0;
@@ -55,644 +60,420 @@ html_content = """<!DOCTYPE html>
       pointer-events: none;
       z-index: 0;
       background: 
-        radial-gradient(circle at 75% 35%, rgba(0, 230, 118, 0.09) 0%, transparent 50%),
-        radial-gradient(circle at 20% 80%, rgba(0, 230, 118, 0.04) 0%, transparent 60%);
+        radial-gradient(circle at 80% 20%, rgba(0, 230, 118, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 15% 75%, rgba(0, 230, 118, 0.05) 0%, transparent 50%);
     }
 
-    /* Top Navigation Header */
-    .app-topbar {
-      padding: 16px 28px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* Top Navigation Bar Header */
+    header.app-header {
+      background: rgba(6, 9, 14, 0.90);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(26, 38, 54, 0.7);
+      padding: 12px 18px;
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(6, 9, 14, 0.88);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(24, 34, 50, 0.7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .brand-group {
+    .brand-wrap {
       display: flex;
       align-items: center;
-      gap: 14px;
-      text-decoration: none;
+      gap: 12px;
     }
 
-    .brand-back-btn {
-      color: #cbd5e1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: transform 0.2s ease;
-    }
-    .brand-back-btn:hover {
-      transform: translateX(-2px);
-      color: #fff;
-    }
-
+    /* Hexagon Glyph Logo from SerQ */
     .brand-hex-logo {
       width: 32px;
       height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
 
-    .brand-text-col {
+    .brand-titles {
       display: flex;
       flex-direction: column;
-      line-height: 1.1;
+      line-height: 1.15;
     }
 
-    .brand-company {
-      font-size: 10px;
+    .brand-tagline {
+      font-size: 9px;
       font-weight: 800;
-      color: #64748b;
+      color: var(--text-muted);
       letter-spacing: 1.5px;
       text-transform: uppercase;
     }
 
-    .brand-name {
-      font-size: 20px;
+    .brand-heading {
+      font-size: 17px;
       font-weight: 800;
-      letter-spacing: -0.5px;
-      color: #ffffff;
+      letter-spacing: -0.3px;
+      color: #fff;
     }
 
-    .brand-name span {
+    .brand-heading span {
       color: var(--emerald);
     }
 
-    .topbar-right {
+    .badge-paper {
+      background: rgba(0, 230, 118, 0.12);
+      color: var(--emerald);
+      border: 1px solid var(--emerald-border);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .header-right-tools {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
     }
 
     .ws-pill {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(0, 230, 118, 0.10);
+      gap: 6px;
+      background: rgba(0, 230, 118, 0.08);
       border: 1px solid var(--emerald-border);
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 20px;
       font-size: 11px;
       font-weight: 700;
       color: var(--emerald);
+      font-family: 'JetBrains Mono', monospace;
     }
 
-    .ws-dot {
-      width: 7px;
-      height: 7px;
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--emerald);
-      box-shadow: 0 0 10px var(--emerald);
-      animation: pulseDot 2s infinite ease-in-out;
+      box-shadow: 0 0 8px var(--emerald);
+      animation: pulseGlow 2s infinite ease-in-out;
     }
 
-    @keyframes pulseDot {
+    @keyframes pulseGlow {
       0%, 100% { opacity: 0.3; transform: scale(0.9); }
-      50% { opacity: 1; transform: scale(1.1); }
+      50% { opacity: 1; transform: scale(1.15); }
     }
 
-    .btn-kill-hdr {
-      background: rgba(255, 51, 102, 0.12);
-      color: var(--accent-red);
-      border: 1px solid rgba(255, 51, 102, 0.4);
-      padding: 5px 12px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: all 0.2s;
+    /* SerQ Tab Switcher */
+    .tab-bar-nav {
+      background: rgba(9, 13, 20, 0.95);
+      border-bottom: 1px solid var(--card-border);
+      padding: 6px 14px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      position: sticky;
+      top: 57px;
+      z-index: 90;
     }
-    .btn-kill-hdr:hover {
-      background: var(--accent-red);
+
+    .tab-pill-btn {
+      padding: 8px 14px;
+      background: #090e16;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-pill-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
       color: #fff;
     }
 
-    /* Mobile Responsive Viewport Switcher */
-    .mobile-tab-pills {
-      display: none;
-      gap: 8px;
-      padding: 12px 16px;
-      overflow-x: auto;
-      z-index: 10;
-    }
-    @media (max-width: 1024px) {
-      .mobile-tab-pills {
-        display: flex;
-      }
-    }
-    .pill-tab {
-      padding: 8px 16px;
-      border-radius: 24px;
-      background: #0b1017;
-      color: var(--text-muted);
-      border: 1px solid var(--card-border);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .pill-tab.active {
+    .tab-pill-btn.active {
       background: rgba(0, 230, 118, 0.14);
       color: var(--emerald);
       border-color: var(--emerald);
       box-shadow: 0 0 14px rgba(0, 230, 118, 0.25);
     }
 
-    /* Main Showcase Container */
-    .showcase-stage {
-      position: relative;
-      z-index: 1;
-      max-width: 1320px;
-      width: 100%;
+    /* Main Container */
+    .app-container {
+      padding: 18px 16px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 40px 32px 60px;
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 50px;
-      align-items: start;
-    }
-
-    @media (max-width: 1024px) {
-      .showcase-stage {
-        grid-template-columns: 1fr;
-        padding: 20px 16px;
-        gap: 28px;
-      }
-    }
-
-    /* Left Rail: Progressive Stepper */
-    .stepper-rail-col {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .hero-heading-wrap {
-      margin-bottom: 36px;
-    }
-
-    .hero-heading {
-      font-size: 42px;
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -1px;
-      color: #ffffff;
-      margin-bottom: 12px;
-    }
-
-    .hero-heading .emerald-word {
-      color: var(--emerald);
-      text-shadow: 0 0 30px rgba(0, 230, 118, 0.4);
-    }
-
-    .hero-subtext {
-      font-size: 15px;
-      color: #718096;
-      line-height: 1.5;
-      max-width: 320px;
-    }
-
-    /* Vertical Timeline Rail */
-    .timeline-container {
       position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-      padding-left: 6px;
-      margin-bottom: 40px;
-    }
-
-    .timeline-track-line {
-      position: absolute;
-      left: 25px;
-      top: 24px;
-      bottom: 24px;
-      width: 2px;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(0, 230, 118, 0.4) 0,
-        rgba(0, 230, 118, 0.4) 4px,
-        transparent 4px,
-        transparent 8px
-      );
       z-index: 1;
     }
 
-    .timeline-step-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      position: relative;
-      z-index: 2;
-      cursor: pointer;
-      padding: 6px 12px;
-      border-radius: 14px;
-      transition: all 0.25s ease;
-    }
-    .timeline-step-row:hover {
-      background: rgba(255, 255, 255, 0.03);
-    }
-    .timeline-step-row.active {
-      background: rgba(0, 230, 118, 0.06);
+    .tab-content {
+      display: none;
     }
 
-    .step-circle-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #080d14;
-      border: 1.5px solid rgba(255, 255, 255, 0.25);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #a0aec0;
-      flex-shrink: 0;
-      transition: all 0.25s;
+    .tab-content.active {
+      display: block;
+      animation: cardAppear 0.25s ease-out;
     }
 
-    .timeline-step-row.active .step-circle-icon {
-      border-color: var(--emerald);
-      color: var(--emerald);
-      box-shadow: 0 0 16px rgba(0, 230, 118, 0.5);
-      background: rgba(0, 230, 118, 0.12);
-    }
-
-    .step-meta-col {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.25;
-    }
-
-    .step-idx-num {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--emerald);
-      margin-bottom: 2px;
-    }
-
-    .step-label-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #ffffff;
-    }
-
-    .step-label-desc {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 2px;
-    }
-
-    /* Bottom Left Brand Pill & Hardware Puck */
-    .technician-brand-pill {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-left: 2px solid var(--emerald);
-      padding-left: 12px;
-      margin-top: 10px;
-      margin-bottom: 24px;
-    }
-
-    .tech-text-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: #94a3b8;
-    }
-
-    .tech-text-sub {
-      font-size: 12px;
-      font-weight: 600;
-      color: #475569;
-    }
-
-    /* 3D Hardware Sensor Puck from Screenshot */
-    .hardware-puck-preview {
-      width: 80px;
-      height: 70px;
-      background: linear-gradient(135deg, #131b26 0%, #080d14 100%);
-      border-radius: 20px;
-      border: 1.5px solid #233044;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 
-        0 15px 30px rgba(0, 0, 0, 0.8),
-        0 0 25px rgba(0, 230, 118, 0.15),
-        inset 0 1px 2px rgba(255, 255, 255, 0.15);
-      position: relative;
-    }
-
-    .puck-inner-logo {
-      width: 28px;
-      height: 28px;
-      color: var(--emerald);
-      filter: drop-shadow(0 0 6px var(--emerald));
-    }
-
-    /* Live Mini Telemetry Card */
-    .mini-pnl-card {
-      background: #090e16;
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 24px;
-    }
-
-    .mini-pnl-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .mini-metric-pill {
-      background: #0d1420;
-      border: 1px solid #1a2536;
-      border-radius: 10px;
-      padding: 8px 12px;
-    }
-
-    .mini-metric-label {
-      font-size: 9px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-    }
-
-    .mini-metric-num {
-      font-size: 15px;
-      font-weight: 800;
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 2px;
-    }
-
-    /* Right Column: 3D Cascading Smartphone Deck */
-    .cascade-stage-wrap {
-      position: relative;
-      width: 100%;
-      min-height: 820px;
-    }
-
-    @media (max-width: 1024px) {
-      .cascade-stage-wrap {
-        min-height: auto;
-      }
-    }
-
-    .phone-mockup {
-      background: var(--bg-card);
-      border: 1px solid var(--emerald-border);
-      border-radius: 34px;
-      padding: 20px 22px 26px;
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
-      box-shadow: 
-        0 25px 60px rgba(0, 0, 0, 0.9),
-        0 0 35px rgba(0, 230, 118, 0.10);
-      position: relative;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @media (min-width: 1025px) {
-      .cascade-stage-wrap {
-        perspective: 1200px;
-      }
-
-      .phone-mockup {
-        position: absolute;
-        width: 380px;
-        cursor: pointer;
-      }
-
-      #phone-card-1 {
-        top: 0px;
-        left: 20px;
-        z-index: 10;
-        opacity: 0.88;
-        transform: scale(0.92) translateZ(-40px);
-        filter: brightness(0.85);
-      }
-
-      #phone-card-2 {
-        top: 65px;
-        left: 175px;
-        z-index: 20;
-        opacity: 0.94;
-        transform: scale(0.96) translateZ(-20px);
-        filter: brightness(0.92);
-      }
-
-      #phone-card-3 {
-        top: 130px;
-        left: 330px;
-        z-index: 30;
-        opacity: 1;
-        transform: scale(1) translateZ(0);
-        box-shadow: 
-          -30px 30px 90px rgba(0, 230, 118, 0.40),
-          0 30px 70px rgba(0, 0, 0, 0.95),
-          inset 0 0 20px rgba(0, 230, 118, 0.08);
-      }
-
-      .cascade-stage-wrap.focus-1 #phone-card-1 {
-        z-index: 50;
-        opacity: 1;
-        filter: brightness(1);
-        transform: scale(1.02) translateZ(50px);
-        box-shadow: 0 0 60px rgba(0, 230, 118, 0.4), 0 30px 70px rgba(0, 0, 0, 0.95);
-      }
-      .cascade-stage-wrap.focus-1 #phone-card-2 {
-        transform: scale(0.92) translateZ(-30px);
-        opacity: 0.75;
-      }
-      .cascade-stage-wrap.focus-1 #phone-card-3 {
-        transform: scale(0.88) translateZ(-60px);
-        opacity: 0.65;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
-      }
-
-      .cascade-stage-wrap.focus-2 #phone-card-2 {
-        z-index: 50;
-        opacity: 1;
-        filter: brightness(1);
-        transform: scale(1.02) translateZ(50px);
-        box-shadow: 0 0 60px rgba(0, 230, 118, 0.4), 0 30px 70px rgba(0, 0, 0, 0.95);
-      }
-      .cascade-stage-wrap.focus-2 #phone-card-1 {
-        transform: scale(0.88) translateZ(-60px);
-        opacity: 0.65;
-      }
-      .cascade-stage-wrap.focus-2 #phone-card-3 {
-        transform: scale(0.92) translateZ(-30px);
-        opacity: 0.75;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
-      }
-
-      .cascade-stage-wrap.focus-3 #phone-card-3 {
-        z-index: 50;
-        opacity: 1;
-        filter: brightness(1);
-        transform: scale(1.02) translateZ(50px);
-        box-shadow: 
-          -35px 35px 100px rgba(0, 230, 118, 0.48),
-          0 30px 70px rgba(0, 0, 0, 0.95),
-          inset 0 0 20px rgba(0, 230, 118, 0.08);
-      }
-      .cascade-stage-wrap.focus-3 #phone-card-1 {
-        transform: scale(0.92) translateZ(-40px);
-        opacity: 0.85;
-      }
-      .cascade-stage-wrap.focus-3 #phone-card-2 {
-        transform: scale(0.96) translateZ(-20px);
-        opacity: 0.92;
-      }
-    }
-
-    @media (max-width: 1024px) {
-      .phone-mockup {
-        display: none;
-        width: 100%;
-        max-width: 440px;
-        margin: 0 auto;
-      }
-      .phone-mockup.active-mobile {
-        display: block;
-        animation: mobileCardFade 0.3s ease-out;
-      }
-    }
-
-    @keyframes mobileCardFade {
-      from { opacity: 0; transform: translateY(10px); }
+    @keyframes cardAppear {
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .mockup-statusbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-muted);
+    /* Kill Switch Alert Banner */
+    .kill-banner-alert {
+      background: rgba(255, 51, 102, 0.14);
+      border: 1px solid var(--accent-red);
+      color: #ff99aa;
+      padding: 12px 16px;
+      border-radius: 14px;
       margin-bottom: 16px;
-      padding: 0 4px;
+      display: none;
+      box-shadow: 0 0 25px rgba(255, 51, 102, 0.25);
     }
 
-    .statusbar-meta-icons {
+    /* SerQ Card Architecture */
+    .serq-card {
+      background: var(--bg-card);
+      border: 1px solid var(--emerald-border);
+      border-radius: 20px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.7),
+        0 0 25px rgba(0, 230, 118, 0.05);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      position: relative;
+    }
+
+    /* Squircle Icon Header Component */
+    .squircle-card-head {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 14px;
+      margin-bottom: 14px;
     }
 
-    .mockup-app-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .app-header-btn {
-      background: none;
-      border: none;
-      color: #cbd5e1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 15px;
-    }
-
-    .app-header-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-soft);
-    }
-
-    .hero-squircle-group {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-
-    .squircle-badge {
-      width: 50px;
-      height: 50px;
-      border-radius: 16px;
+    .squircle-icon-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
       background: rgba(0, 230, 118, 0.12);
       border: 1.5px solid var(--emerald-border);
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--emerald);
-      box-shadow: 0 0 20px rgba(0, 230, 118, 0.25);
+      box-shadow: 0 0 16px rgba(0, 230, 118, 0.2);
       flex-shrink: 0;
     }
 
-    .squircle-texts h2 {
-      font-size: 20px;
+    .squircle-title-wrap {
+      flex: 1;
+    }
+
+    .squircle-pretag {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--emerald);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .squircle-title-wrap h2, .squircle-title-wrap h3 {
+      font-size: 17px;
       font-weight: 800;
       color: #ffffff;
       line-height: 1.2;
     }
 
-    .squircle-texts p {
-      font-size: 12px;
+    .squircle-title-wrap p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Spot Ticker Hero Card */
+    .spot-hero-ticker {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, rgba(13, 19, 28, 0.96) 0%, rgba(18, 26, 38, 0.94) 100%);
+      border: 1px solid var(--emerald-border);
+      border-radius: 20px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(0, 230, 118, 0.10);
+    }
+
+    .spot-price-big {
+      font-size: 30px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      margin-top: 2px;
+    }
+
+    /* Financial Metrics Grid */
+    .metrics-2x2-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric-serq-cell {
+      background: #090e15;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+    }
+
+    .metric-serq-cell:hover {
+      border-color: var(--emerald-border);
+    }
+
+    .metric-cell-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .metric-cell-val {
+      font-size: 18px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .metric-cell-sub {
+      font-size: 11px;
       color: var(--text-muted);
       margin-top: 3px;
     }
 
-    .squircle-tag {
-      font-size: 10px;
-      font-weight: 800;
-      color: var(--emerald);
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-
-    .progress-section {
+    /* SerQ Action Buttons */
+    .serq-btn-row {
+      display: flex;
+      gap: 10px;
       margin-bottom: 16px;
     }
 
-    .progress-labels-row {
+    .btn-serq-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #00e676 0%, #00b050 100%);
+      color: #06110a;
+      font-weight: 800;
+      font-size: 13px;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 230, 118, 0.4);
+      transition: all 0.2s;
+    }
+
+    .btn-serq-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 26px rgba(0, 230, 118, 0.6);
+    }
+
+    .btn-serq-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-serq-secondary {
+      flex: 1;
+      background: rgba(14, 21, 31, 0.75);
+      color: #cbd5e1;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-serq-secondary:hover {
+      background: #131c2a;
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    .btn-serq-danger {
+      background: rgba(255, 51, 102, 0.15);
+      border: 1px solid var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .btn-serq-danger:hover {
+      background: var(--accent-red);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
+    }
+
+    /* SerQ Checklist Component */
+    .checklist-progress-wrap {
+      margin-bottom: 12px;
+    }
+
+    .checklist-meta-line {
       display: flex;
       justify-content: space-between;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-muted);
       margin-bottom: 6px;
     }
 
-    .progress-track-bg {
+    .checklist-track-bg {
       height: 4px;
       background: #141c28;
       border-radius: 2px;
       overflow: hidden;
     }
 
-    .progress-fill-emerald {
+    .checklist-fill-emerald {
       height: 100%;
       background: var(--emerald);
-      box-shadow: 0 0 12px var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
       transition: width 0.4s ease;
     }
 
-    .checklist-rows-wrap {
+    .checklist-stack {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
-    .chk-item-card {
+    .checklist-item-row {
       background: #090e15;
       border: 1px solid var(--card-border);
       border-radius: 12px;
@@ -702,28 +483,24 @@ html_content = """<!DOCTYPE html>
       align-items: center;
       transition: border-color 0.2s;
     }
-    .chk-item-card:hover {
+
+    .checklist-item-row:hover {
       border-color: rgba(0, 230, 118, 0.35);
     }
 
-    .chk-left-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .chk-main-title {
+    .chk-title-text {
       font-size: 13px;
       font-weight: 700;
       color: #f1f5f9;
     }
 
-    .chk-state-text {
+    .chk-subtitle-text {
       font-size: 10px;
       color: var(--text-muted);
       margin-top: 2px;
     }
 
-    .status-glyph {
+    .chk-pill-glyph {
       width: 20px;
       height: 20px;
       border-radius: 50%;
@@ -733,60 +510,45 @@ html_content = """<!DOCTYPE html>
       flex-shrink: 0;
     }
 
-    .status-glyph.completed {
+    .chk-pill-glyph.completed {
       background: var(--emerald);
       color: #06090e;
       font-size: 11px;
       font-weight: 900;
     }
 
-    .status-glyph.in-progress {
+    .chk-pill-glyph.in-progress {
       border: 2px solid var(--emerald);
-      box-shadow: 0 0 10px var(--emerald);
-      animation: spinGlyph 2.5s linear infinite;
+      box-shadow: 0 0 8px var(--emerald);
+      animation: spinRing 2.5s linear infinite;
     }
 
-    .status-glyph.pending {
+    .chk-pill-glyph.pending {
       border: 2px solid #233044;
     }
 
-    @keyframes spinGlyph {
+    @keyframes spinRing {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
 
-    .trade-active-panel {
+    /* Active Managed Trade Panel */
+    .active-trade-box {
       background: #0d1522;
       border: 1px solid var(--emerald-border);
       border-radius: 14px;
       padding: 12px 14px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
-    .trade-panel-head {
+    .trade-box-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 8px;
     }
 
-    .trade-panel-title {
-      font-size: 13px;
-      font-weight: 800;
-      color: #ffffff;
-    }
-
-    .trade-panel-badge {
-      font-size: 9px;
-      font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 4px;
-      background: rgba(0, 230, 118, 0.15);
-      color: var(--emerald);
-      border: 1px solid var(--emerald);
-    }
-
-    .trade-stats-grid {
+    .trade-stat-quad {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 6px;
@@ -795,154 +557,42 @@ html_content = """<!DOCTYPE html>
       margin-bottom: 8px;
     }
 
-    .btn-complete-emerald {
-      background: linear-gradient(135deg, #00e676 0%, #00b050 100%);
-      color: #050d08;
-      font-weight: 800;
-      font-size: 14px;
-      border: none;
-      border-radius: 14px;
-      padding: 14px 20px;
-      width: 100%;
+    /* List Rows (Quotes, Positions, Orders) */
+    .serq-list-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .serq-list-row {
+      background: #090e15;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      cursor: pointer;
-      box-shadow: 0 4px 25px rgba(0, 230, 118, 0.45);
-      transition: all 0.2s;
-    }
-    .btn-complete-emerald:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 32px rgba(0, 230, 118, 0.65);
-    }
-    .btn-complete-emerald:active {
-      transform: translateY(1px);
+      transition: border-color 0.2s;
     }
 
-    .btn-add-note-glass {
-      background: rgba(14, 21, 31, 0.7);
-      color: #cbd5e1;
+    .serq-list-row:hover {
+      border-color: rgba(0, 230, 118, 0.3);
+    }
+
+    .row-sym-bold {
       font-weight: 700;
       font-size: 13px;
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 12px 20px;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-add-note-glass:hover {
-      background: #151f2e;
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .floating-refresh-btn {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: rgba(13, 19, 28, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-      z-index: 99;
-      transition: all 0.2s;
-      backdrop-filter: blur(12px);
-    }
-    .floating-refresh-btn:hover {
-      border-color: var(--emerald);
-      color: var(--emerald);
-      transform: rotate(45deg);
-    }
-
-    .tactical-map-viewport {
-      height: 145px;
-      background: #080d15;
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 14px;
-    }
-    .route-canvas-el {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    .map-badge-pin {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(6, 9, 14, 0.85);
-      border: 1px solid var(--emerald-border);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 10px;
-      color: var(--emerald);
-      font-weight: 700;
-    }
-
-    .eta-dist-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .eta-pill-box {
-      background: #090e15;
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 8px 12px;
-    }
-
-    .eta-lbl {
-      font-size: 9px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-    }
-
-    .eta-val {
-      font-size: 15px;
-      font-weight: 800;
-      color: #fff;
       font-family: 'JetBrains Mono', monospace;
+    }
+
+    .row-sub-detail {
+      font-size: 10px;
+      color: var(--text-muted);
       margin-top: 2px;
     }
 
-    .quotes-scroll-area {
-      max-height: 180px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    .quote-item-row {
-      background: #090e15;
-      border: 1px solid #16202e;
-      border-radius: 8px;
-      padding: 8px 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .btn-quick-buy {
+    .btn-buy-serq {
       padding: 4px 10px;
       background: rgba(0, 230, 118, 0.14);
       border: 1px solid var(--emerald);
@@ -951,597 +601,535 @@ html_content = """<!DOCTYPE html>
       font-size: 10px;
       font-weight: 800;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .macro-quad-box {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 14px;
+    .btn-buy-serq:hover {
+      background: var(--emerald);
+      color: #06090e;
     }
 
-    .macro-data-cell {
-      background: #090e15;
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 10px;
-    }
-
-    .macro-val-mono {
-      font-size: 15px;
+    .tag-badge {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
       font-weight: 800;
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 2px;
+      display: inline-block;
     }
+
+    .tag-feasible {
+      background: rgba(0, 230, 118, 0.15);
+      color: var(--emerald);
+      border: 1px solid var(--emerald);
+    }
+
+    .tag-infeasible {
+      background: rgba(255, 51, 102, 0.15);
+      color: var(--accent-red);
+      border: 1px solid var(--accent-red);
+    }
+
+    .val-profit { color: var(--emerald); font-weight: 800; }
+    .val-loss { color: var(--accent-red); font-weight: 800; }
   </style>
 </head>
 <body>
 
   <div class="ambient-glow-mesh"></div>
 
-  <!-- Top Navigation Bar -->
-  <header class="app-topbar">
-    <div class="brand-group">
-      <div class="brand-back-btn" onclick="selectStep(1)" title="Go to Step 1">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      </div>
+  <!-- Top App Navigation Header -->
+  <header class="app-header">
+    <div class="brand-wrap">
       <div class="brand-hex-logo">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2">
           <polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon>
           <circle cx="12" cy="12" r="3" fill="var(--emerald)"></circle>
         </svg>
       </div>
-      <div class="brand-text-col">
-        <span class="brand-company">CODEQUERY</span>
-        <span class="brand-name">Ser<span>Q</span></span>
+      <div class="brand-titles">
+        <span class="brand-tagline">CODEQUERY SerQ • INSTITUTIONAL</span>
+        <div class="brand-heading">
+          NIFTY <span>Arbitrage</span> HUD
+          <span class="badge-paper">PAPER V1</span>
+        </div>
       </div>
     </div>
 
-    <div class="topbar-right">
+    <div class="header-right-tools">
+      <span id="scheduler-phase-badge" class="tag-badge" style="background: rgba(0, 230, 118, 0.12); color: var(--emerald); border: 1px solid var(--emerald-border); font-size: 10px;">
+        09:15 OPEN
+      </span>
       <div class="ws-pill">
-        <div class="ws-dot"></div>
-        <span id="top-ws-ping">24 ms</span>
+        <div class="pulse-dot" id="live-dot"></div>
+        <span id="ws-latency">24 ms</span>
       </div>
-      <button class="btn-kill-hdr" onclick="engageKillSwitch()">
-        🛑 Emergency Kill
-      </button>
     </div>
   </header>
 
-  <!-- Mobile Step Tab Switcher -->
-  <nav class="mobile-tab-pills">
-    <button class="pill-tab" onclick="selectStep(1)" id="mtab-1">1. Job Assigned</button>
-    <button class="pill-tab" onclick="selectStep(2)" id="mtab-2">2. Navigation Details</button>
-    <button class="pill-tab active" onclick="selectStep(3)" id="mtab-3">3. Service Checklist</button>
+  <!-- SerQ Dual-View Tab Navigation -->
+  <nav class="tab-bar-nav">
+    <button class="tab-pill-btn active" onclick="switchTab('tab-trading')" id="nav-tab-trading">
+      <span>📱</span> Trading HUD
+    </button>
+    <button class="tab-pill-btn" onclick="switchTab('tab-arbitrage')" id="nav-tab-arbitrage">
+      <span>⚡</span> Arbitrage & Risk
+    </button>
+    <button class="tab-pill-btn" onclick="switchTab('tab-orders')" id="nav-tab-orders">
+      <span>📋</span> Orders & Trades
+    </button>
   </nav>
 
-  <!-- Main Showcase Grid -->
-  <main class="showcase-stage">
+  <!-- Main Container -->
+  <main class="app-container">
 
-    <!-- Left Rail: Progressive Disclosure Stepper -->
-    <aside class="stepper-rail-col">
-      <div class="hero-heading-wrap">
-        <h1 class="hero-heading">
-          Field Service.<br>
-          <span class="emerald-word">Simplified.</span>
-        </h1>
-        <p class="hero-subtext">
-          Progressive disclosure in action—one step at a time.
-        </p>
-      </div>
+    <!-- Kill Switch Alert Banner -->
+    <div id="kill-alert" class="kill-banner-alert">
+      ⚠️ <strong>EMERGENCY KILL SWITCH ENGAGED!</strong> <span id="kill-reason"></span>
+      <button onclick="resetKillSwitch()" style="margin-left: 12px; padding: 4px 10px; background: var(--accent-red); color:#fff; border:none; border-radius:6px; font-weight:800; cursor:pointer;">
+        Reset Kill Switch
+      </button>
+    </div>
 
-      <!-- Vertical Timeline Rail -->
-      <div class="timeline-container">
-        <div class="timeline-track-line"></div>
+    <!-- ======================================================== -->
+    <!-- TAB 1: MAIN TRADING HUD                                 -->
+    <!-- ======================================================== -->
+    <section id="tab-trading" class="tab-content active">
 
-        <!-- Step 1 -->
-        <div class="timeline-step-row" id="rail-step-1" onclick="selectStep(1)">
-          <div class="step-circle-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-            </svg>
-          </div>
-          <div class="step-meta-col">
-            <span class="step-idx-num">1</span>
-            <span class="step-label-title">Job Assigned</span>
-            <span class="step-label-desc">Global Macro Posture & Oil</span>
-          </div>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="timeline-step-row" id="rail-step-2" onclick="selectStep(2)">
-          <div class="step-circle-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-            </svg>
-          </div>
-          <div class="step-meta-col">
-            <span class="step-idx-num">2</span>
-            <span class="step-label-title">Navigation Details</span>
-            <span class="step-label-desc">Route & Orderbook Depth</span>
-          </div>
-        </div>
-
-        <!-- Step 3 (Active) -->
-        <div class="timeline-step-row active" id="rail-step-3" onclick="selectStep(3)">
-          <div class="step-circle-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 11l3 3L22 4"></path>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-            </svg>
-          </div>
-          <div class="step-meta-col">
-            <span class="step-idx-num">3</span>
-            <span class="step-label-title">Service Checklist</span>
-            <span class="step-label-desc">Execution & Trailing Ratchet</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Technician Credit & Hardware Puck from Screenshot -->
-      <div class="technician-brand-pill">
+      <!-- Spot Ticker Hero Card -->
+      <div class="spot-hero-ticker">
         <div>
-          <div class="tech-text-title">Built for Technicians.</div>
-          <div class="tech-text-sub">Backed by CodeQuery.</div>
+          <div style="font-size: 10px; font-weight: 800; color: var(--emerald); letter-spacing: 0.5px; text-transform: uppercase;">
+            NIFTY 50 SPOT INDEX • LOT SIZE: 65
+          </div>
+          <div class="spot-price-big" id="spot-price">24,500.00</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">DATA ENGINE</div>
+          <div style="font-weight: 800; color: var(--emerald); font-size: 12px; margin-top: 2px;" id="feed-mode">SIMULATED REPLAY</div>
         </div>
       </div>
 
-      <!-- Glowing Hardware Sensor Puck from Screenshot -->
-      <div class="hardware-puck-preview" title="SerQ Telemetry Node">
-        <svg class="puck-inner-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon>
-          <circle cx="12" cy="12" r="2.5" fill="currentColor"></circle>
-        </svg>
-      </div>
-
-      <!-- Mini Live Financial Telemetry -->
-      <div class="mini-pnl-card">
-        <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase;">
-          Live Account Telemetry
-        </div>
-        <div class="mini-pnl-grid">
-          <div class="mini-metric-pill">
-            <div class="mini-metric-label">VIRTUAL CAPITAL</div>
-            <div class="mini-metric-num" id="live-cash-disp" style="color: var(--emerald);">₹3,000.00</div>
-          </div>
-          <div class="mini-metric-pill">
-            <div class="mini-metric-label">NET REALIZED</div>
-            <div class="mini-metric-num" id="live-pnl-disp">₹0.00</div>
-          </div>
-        </div>
-        <div style="margin-top: 10px; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
-          <span>Friction: <strong id="live-fees-disp" style="color: #fda4af;">₹0.00</strong></span>
-          <span id="live-time-disp" style="font-family: monospace;">15:15 IST</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Right Stage: 3D Cascading Smartphone Mockups -->
-    <section class="cascade-stage-wrap focus-3" id="cascadeDeck">
-
-      <!-- ============================================== -->
-      <!-- CARD 1: JOB ASSIGNED (UPPER-LEFT BACK PHONE)   -->
-      <!-- ============================================== -->
-      <div class="phone-mockup" id="phone-card-1" onclick="selectStep(1)">
-        <!-- Statusbar -->
-        <div class="mockup-statusbar">
-          <span>9:41</span>
-          <div class="statusbar-meta-icons">
-            <span>●●●</span>
-            <span>5G</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <!-- In-app Header -->
-        <div class="mockup-app-header">
-          <button class="app-header-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-          <span class="app-header-title">My Jobs</span>
-          <button class="app-header-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-          </button>
-        </div>
-
-        <!-- Squircle Header (New Assignment) -->
-        <div class="hero-squircle-group">
-          <div class="squircle-badge">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+      <!-- Intraday Market Session Lifecycle Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
           </div>
-          <div class="squircle-texts">
-            <div class="squircle-tag">[New Assignment]</div>
-            <h2>Assigned</h2>
-            <p id="c1-synthesis">Hydraulic Pump Inspection & Repair</p>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">SESSION TIMELINE</div>
+            <h3>Intraday Routine (IST Clock)</h3>
+            <p id="ist-clock">15:15:00 IST • Trading Active Window</p>
           </div>
+          <span id="trading-perm-badge" class="tag-badge tag-feasible">🟢 ACTIVE</span>
         </div>
 
-        <!-- Meta Bar -->
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #080d14; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--card-border); margin-bottom: 12px; font-size: 11px;">
-          <div><span style="color: var(--text-muted);">Job ID:</span> <strong>#CQ-7843</strong></div>
-          <div><span style="color: var(--text-muted);">Priority:</span> <span style="color: var(--accent-red); font-weight: 800;">● High</span></div>
-          <div><span style="color: var(--text-muted);">Lot:</span> <strong>65 Units</strong></div>
-        </div>
-
-        <!-- Macro Metrics Quad Grid -->
-        <div class="macro-quad-box">
-          <div class="macro-data-cell">
-            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">BRENT CRUDE</div>
-            <div class="macro-val-mono" id="c1-brent">$103.55</div>
-            <div style="font-size: 9px; color: var(--accent-red);" id="c1-brent-chg">-3.7%</div>
-          </div>
-          <div class="macro-data-cell">
-            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">DOLLAR INDEX (DXY)</div>
-            <div class="macro-val-mono" id="c1-dxy">99.16</div>
-            <div style="font-size: 9px; color: var(--text-muted);">Index Level</div>
-          </div>
-          <div class="macro-data-cell">
-            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">EST. OPEN GAP</div>
-            <div class="macro-val-mono" id="c1-gap" style="color: var(--emerald);">+76.8</div>
-            <div style="font-size: 9px; color: var(--text-muted);">GIFT NIFTY Pts</div>
-          </div>
-          <div class="macro-data-cell">
-            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">GEOPOLITICAL FEAR</div>
-            <div class="macro-val-mono" id="c1-fear" style="color: var(--accent-amber);">0.30</div>
-            <div style="font-size: 9px; color: var(--text-muted);">Normal / Moderate</div>
-          </div>
-        </div>
-
-        <!-- Scenario Controls -->
-        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-          <select id="macro-scenario-select" onchange="onScenarioSelect(this.value)" style="flex: 2; background: #0e1520; color: #fff; border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 10px; font-size: 11px;">
-            <option value="NEUTRAL">🌐 Neutral Baseline</option>
-            <option value="MIDDLE_EAST_WAR_CRISIS">💥 Middle East Shock</option>
-            <option value="GLOBAL_DEESCALATION_RELIEF">🕊️ Peace Relief Rally</option>
-            <option value="US_FED_HAWKISH_SURPRISE">🦅 Fed Hawkish Shock</option>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select id="phase-selector" style="flex: 2; background: #090e15; color: #fff; border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 10px; font-size: 11px;">
+            <option value="PRE_MARKET_OPEN">09:00 IST - Pre-Market Macro Sync</option>
+            <option value="MORNING_BREAKOUT" selected>09:15 IST - Market Opening Bell</option>
+            <option value="MIDDAY_STAND_DOWN">11:30 IST - Midday Chop Stand-Down</option>
+            <option value="AFTERNOON_SESSION">13:30 IST - European Open Momentum</option>
+            <option value="MANDATORY_SQUARE_OFF">15:15 IST - Mandatory Intraday Square-Off</option>
+            <option value="POST_MARKET_LEARN">15:35 IST - Post-Market AI Adaptation</option>
+            <option value="MARKET_CLOSED">Off-Hours - Market Closed</option>
           </select>
-          <button onclick="triggerMacroPoll()" style="flex: 1; padding: 8px; background: rgba(0, 230, 118, 0.15); border: 1px solid var(--emerald); color: var(--emerald); border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer;">
-            🔄 Poll
+          <button onclick="advancePhase()" class="btn-serq-secondary" style="flex: 1; padding: 8px 12px; font-size: 11px;">
+            ⏭️ Set Phase
           </button>
         </div>
+      </div>
 
-        <button class="btn-complete-emerald" onclick="event.stopPropagation(); selectStep(2)">
-          <span>Proceed to Navigation</span>
-          <span>→</span>
+      <!-- Financial Metrics Grid -->
+      <div class="metrics-2x2-grid">
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">VIRTUAL CASH</div>
+          <div class="metric-cell-val" id="cash-val" style="color: var(--emerald);">₹3,000.00</div>
+          <div class="metric-cell-sub">Floor: ₹2,000.00 Invariant</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">NET P&L (AFTER FRICTION)</div>
+          <div class="metric-cell-val" id="net-pnl">₹0.00</div>
+          <div class="metric-cell-sub" id="pnl-pct">0.00% Return</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">STATUTORY FRICTION</div>
+          <div class="metric-cell-val" id="total-fees" style="color: #fda4af;">₹0.00</div>
+          <div class="metric-cell-sub">STT, GST, SEBI (~₹52/lot)</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">PORTFOLIO VALUE</div>
+          <div class="metric-cell-val" id="port-val">₹3,000.00</div>
+          <div class="metric-cell-sub" id="drawdown-val">Drawdown: 0.0%</div>
+        </div>
+      </div>
+
+      <!-- SerQ Action Controls -->
+      <div class="serq-btn-row">
+        <button class="btn-serq-secondary btn-serq-danger" onclick="engageKillSwitch()">
+          🛑 EMERGENCY KILL SWITCH
+        </button>
+        <button class="btn-serq-secondary" onclick="resetPaperAccount()">
+          🔄 RESET ₹3,000 CAPITAL
         </button>
       </div>
 
-
-      <!-- ============================================== -->
-      <!-- CARD 2: NAVIGATION DETAILS (MIDDLE PHONE)      -->
-      <!-- ============================================== -->
-      <div class="phone-mockup" id="phone-card-2" onclick="selectStep(2)">
-        <!-- Statusbar -->
-        <div class="mockup-statusbar">
-          <span>9:41</span>
-          <div class="statusbar-meta-icons">
-            <span>●●●</span>
-            <span>5G</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <!-- In-app Header -->
-        <div class="mockup-app-header">
-          <button class="app-header-btn" onclick="event.stopPropagation(); selectStep(1)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
-          <span class="app-header-title">Job Details</span>
-          <span style="font-size: 10px; color: var(--emerald); font-weight: 700;">Live Route</span>
-        </div>
-
-        <!-- Squircle Header -->
-        <div class="hero-squircle-group">
-          <div class="squircle-badge">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-            </svg>
-          </div>
-          <div class="squircle-texts">
-            <h2>Navigation Details</h2>
-            <p>Acme Industries Ltd. • 128 Industrial Way</p>
-          </div>
-        </div>
-
-        <!-- ETA & Distance Pills from Screenshot -->
-        <div class="eta-dist-grid">
-          <div class="eta-pill-box">
-            <div class="eta-lbl">ETA</div>
-            <div class="eta-val" id="c2-eta">24 min</div>
-          </div>
-          <div class="eta-pill-box">
-            <div class="eta-lbl">DISTANCE</div>
-            <div class="eta-val" id="c2-spot" style="color: var(--emerald);">11.3 mi</div>
-          </div>
-        </div>
-
-        <!-- Tactical Dark Route Map Canvas with Glowing Emerald Polyline -->
-        <div class="tactical-map-viewport">
-          <canvas id="routeCanvas" class="route-canvas-el" width="400" height="145"></canvas>
-          <div class="map-badge-pin">● Route Waypoint: NIFTY 24600 CE</div>
-        </div>
-
-        <!-- Strike Quotes Depth List -->
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">
-          ORDERBOOK DEPTH (MAX OUTLAY ≤ ₹2,470)
-        </div>
-        <div class="quotes-scroll-area" id="c2-quotes-list">
-          <!-- Dynamically populated -->
-        </div>
-
-        <button class="btn-complete-emerald" onclick="event.stopPropagation(); selectStep(3)">
-          <span>Proceed to Checklist</span>
-          <span>→</span>
-        </button>
-      </div>
-
-
-      <!-- ============================================== -->
-      <!-- CARD 3: SERVICE CHECKLIST (HERO FOREGROUND)   -->
-      <!-- ============================================== -->
-      <div class="phone-mockup active-mobile" id="phone-card-3" onclick="selectStep(3)">
-        <!-- Statusbar -->
-        <div class="mockup-statusbar">
-          <span>9:41</span>
-          <div class="statusbar-meta-icons">
-            <span>●●●</span>
-            <span>5G</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <!-- In-app Header -->
-        <div class="mockup-app-header">
-          <button class="app-header-btn" onclick="event.stopPropagation(); selectStep(2)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
-          <span class="app-header-title">Service Checklist</span>
-          <span id="auto-status-pill" style="font-size: 10px; color: var(--emerald); font-weight: 800; background: rgba(0, 230, 118, 0.15); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--emerald);">AUTO ON</span>
-        </div>
-
-        <!-- Squircle Header from Screenshot -->
-        <div class="hero-squircle-group">
-          <div class="squircle-badge">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <!-- SerQ Pre-Trade Compliance & Invariant Checklist Component -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 11l3 3L22 4"></path>
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
           </div>
-          <div class="squircle-texts">
-            <h2>Service Checklist</h2>
-            <p>Hydraulic Pump Inspection & Repair</p>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">INVARIANTS & RISK</div>
+            <h3>Pre-Trade Compliance Checklist</h3>
+            <p>Institutional Guardrails Before Order Dispatch</p>
+          </div>
+          <span id="chk-progress-badge" class="tag-badge tag-feasible">5 of 6 (83%)</span>
+        </div>
+
+        <div class="checklist-progress-wrap">
+          <div class="checklist-meta-line">
+            <span>Pre-Trade Safety Gates</span>
+            <span id="chk-progress-pct" style="color: var(--emerald);">83% Verified</span>
+          </div>
+          <div class="checklist-track-bg">
+            <div class="checklist-fill-emerald" id="chk-progress-bar" style="width: 83%;"></div>
           </div>
         </div>
 
-        <!-- Progress Bar from Screenshot -->
-        <div class="progress-section">
-          <div class="progress-labels-row">
-            <span>Hydraulic Pump Inspection & Repair</span>
-            <span id="c3-progress-count" style="color: #e2e8f0; font-weight: 700;">3 of 6 completed</span>
+        <div class="checklist-stack">
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">1. Market Session Valid</div>
+              <div class="chk-subtitle-text" id="chk-step-1">09:15 - 15:15 Open Trading Window</div>
+            </div>
+            <div class="chk-pill-glyph completed" id="chk-glyph-1">✓</div>
           </div>
-          <div class="progress-track-bg">
-            <div class="progress-fill-emerald" id="c3-progress-fill" style="width: 50%;"></div>
+
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">2. Global Macro Posture Aligned</div>
+              <div class="chk-subtitle-text" id="chk-step-2">Crude & GIFT NIFTY Directional Agreement</div>
+            </div>
+            <div class="chk-pill-glyph completed" id="chk-glyph-2">✓</div>
+          </div>
+
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">3. ML Conviction ≥ 55%</div>
+              <div class="chk-subtitle-text" id="chk-step-3">Micro-price spread and imbalance validated</div>
+            </div>
+            <div class="chk-pill-glyph completed" id="chk-glyph-3">✓</div>
+          </div>
+
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">4. ₹52 Tax Hurdle Cleared</div>
+              <div class="chk-subtitle-text" id="chk-step-4">Expected Move > 0.80 pts covering statutory taxes</div>
+            </div>
+            <div class="chk-pill-glyph completed" id="chk-glyph-4">✓</div>
+          </div>
+
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">5. Dynamic Trailing Stop Ratchet</div>
+              <div class="chk-subtitle-text" id="chk-step-5">Breakeven -> Profit Lock -> 1:3 RR active</div>
+            </div>
+            <div class="chk-pill-glyph in-progress" id="chk-glyph-5"></div>
+          </div>
+
+          <div class="checklist-item-row">
+            <div>
+              <div class="chk-title-text">6. Mandatory 15:15 Square-Off</div>
+              <div class="chk-subtitle-text">Zero overnight position carry guarantee</div>
+            </div>
+            <div class="chk-pill-glyph completed" id="chk-glyph-6">✓</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Autonomous Auto-Pilot & Trailing Stop HUD Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">AUTONOMOUS DISPATCH</div>
+            <h3>Autonomous Auto-Pilot & Trailing Stop</h3>
+            <p>Single-leg breakout execution under ₹2,470 max premium</p>
+          </div>
+          <span id="auto-trade-badge" class="tag-badge tag-feasible">🟢 AUTO ON</span>
+        </div>
+
+        <div id="managed-trade-container" style="background: #090e15; border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+          <div style="text-align: center; color: var(--text-muted); font-size: 11px;">
+            Scanning orderbooks. Auto-Pilot enters single-leg breakouts when ML conviction ≥ 55% and Net P&L clears the ₹52 fee hurdle.
           </div>
         </div>
 
-        <!-- 6 Checklist Items Matching Screenshot Exactly -->
-        <div class="checklist-rows-wrap">
-          <!-- 1. Safety Inspection -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">1. Safety Inspection</span>
-              <span class="chk-state-text" id="chk1-label">Completed (09:15 Open Window Valid)</span>
-            </div>
-            <div class="status-glyph completed" id="chk1-glyph">✓</div>
-          </div>
+        <div class="serq-btn-row" style="margin-bottom: 0;">
+          <button id="btn-toggle-auto" class="btn-serq-primary" onclick="toggleAutoPilot()">
+            <span>Complete Trade (Auto-Pilot Active)</span>
+            <span>→</span>
+          </button>
+          <button class="btn-serq-secondary btn-serq-danger" onclick="triggerSquareOffAll()">
+            🛑 15:15 Square-Off All
+          </button>
+        </div>
+      </div>
 
-          <!-- 2. Visual Inspection -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">2. Visual Inspection</span>
-              <span class="chk-state-text" id="chk2-label">Completed (Macro Posture & GIFT Gap Aligned)</span>
-            </div>
-            <div class="status-glyph completed" id="chk2-glyph">✓</div>
+      <!-- World Tension & Macro Intelligence Radar Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
           </div>
-
-          <!-- 3. Pressure Test -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">3. Pressure Test</span>
-              <span class="chk-state-text" id="chk3-label">In Progress (ML Imbalance & ₹52 Tax Hurdle)</span>
-            </div>
-            <div class="status-glyph in-progress" id="chk3-glyph"></div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">GLOBAL MACRO FUSION</div>
+            <h3>World Tension & Macro Intelligence</h3>
+            <p id="macro-synthesis-text">Ingesting Brent Crude, DXY, and geopolitical RSS</p>
           </div>
+          <span id="macro-posture-badge" class="tag-badge" style="background: rgba(255, 51, 102, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red);">
+            DEFENSIVE_CASH
+          </span>
+        </div>
 
-          <!-- 4. Seal Replacement -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">4. Seal Replacement</span>
-              <span class="chk-state-text" id="chk4-label">Pending (Dynamic Trailing Stop Ratchet)</span>
-            </div>
-            <div class="status-glyph pending" id="chk4-glyph"></div>
+        <!-- Macro Metrics Quad -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; text-align: center;">
+          <div style="background: #090e15; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--card-border);">
+            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">BRENT CRUDE</div>
+            <div id="macro-crude-val" style="font-weight: 800; font-family: 'JetBrains Mono', monospace; font-size: 13px; margin-top: 2px;">$82.50</div>
+            <div id="macro-crude-chg" style="font-size: 9px; color: var(--emerald);">+0.8%</div>
           </div>
-
-          <!-- 5. Fluid Level Check -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">5. Fluid Level Check</span>
-              <span class="chk-state-text" id="chk5-label">Pending (Single Leg Margin ≤ ₹2,470)</span>
-            </div>
-            <div class="status-glyph pending" id="chk5-glyph"></div>
+          <div style="background: #090e15; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--card-border);">
+            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">DOLLAR DXY</div>
+            <div id="macro-dxy-val" style="font-weight: 800; font-family: 'JetBrains Mono', monospace; font-size: 13px; margin-top: 2px;">104.20</div>
+            <div style="font-size: 9px; color: var(--text-muted);">Index</div>
           </div>
-
-          <!-- 6. Final Report -->
-          <div class="chk-item-card">
-            <div class="chk-left-info">
-              <span class="chk-main-title">6. Final Report</span>
-              <span class="chk-state-text" id="chk6-label">Pending (15:15 Square-Off & Audit Log)</span>
-            </div>
-            <div class="status-glyph pending" id="chk6-glyph"></div>
+          <div style="background: #090e15; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--card-border);">
+            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">GIFT NIFTY GAP</div>
+            <div id="macro-gift-gap-val" style="font-weight: 800; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--emerald); margin-top: 2px;">+15.0</div>
+            <div style="font-size: 9px; color: var(--text-muted);">Points</div>
+          </div>
+          <div style="background: #090e15; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--card-border);">
+            <div style="font-size: 9px; color: var(--text-muted); font-weight: 700;">EXP. OPEN GAP</div>
+            <div id="macro-exp-gap-val" style="font-weight: 800; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--emerald); margin-top: 2px;">+12.5</div>
+            <div style="font-size: 9px; color: var(--text-muted);">Forecast</div>
           </div>
         </div>
 
-        <!-- Active Managed Trade Dynamic Box -->
-        <div id="live-trade-wrap" style="display: none;">
-          <div class="trade-active-panel">
-            <div class="trade-panel-head">
-              <span class="trade-panel-title" id="t-sym-title">NIFTY 24600 CE (65 Qty)</span>
-              <span class="trade-panel-badge" id="t-ratchet-badge">TIER 1 BREAKEVEN</span>
-            </div>
-            <div class="trade-stats-grid">
-              <div><span style="color: var(--text-muted);">ENTRY:</span> <span id="t-entry">₹28.10</span></div>
-              <div><span style="color: var(--text-muted);">LTP:</span> <span id="t-ltp">₹31.30</span></div>
-              <div><span style="color: var(--accent-red);">STOP:</span> <span id="t-stop">₹28.90</span></div>
-              <div><span style="color: var(--emerald);">TARGET:</span> <span id="t-target">₹35.00</span></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
-              <span id="t-move-pnl" style="color: var(--emerald);">Move: +3.20 pts (+₹208.00)</span>
-              <span style="color: var(--text-muted);">15m Theta Stop Active</span>
-            </div>
+        <!-- Geopolitical Fear Index Bar -->
+        <div style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px;">
+            <span style="color: var(--text-muted); font-weight: 700;">GEOPOLITICAL FEAR INDEX</span>
+            <span id="macro-fear-text" style="font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--emerald);">0.15 (NORMAL / LOW RISK)</span>
+          </div>
+          <div style="height: 6px; background: #141c28; border-radius: 3px; overflow: hidden;">
+            <div id="macro-fear-bar" style="height: 100%; width: 15%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); transition: width 0.3s, background 0.3s;"></div>
           </div>
         </div>
 
-        <!-- Bottom Action Buttons Exactly as Screenshot -->
-        <button class="btn-complete-emerald" id="btn-complete-action" onclick="event.stopPropagation(); toggleAutoPilot()">
-          <span id="btn-action-label">Complete Job</span>
-          <span>→</span>
-        </button>
+        <!-- World Event Simulation Controls -->
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select id="scenario-selector" onchange="onScenarioSelect(this.value)" style="flex: 2; background: #090e15; color: #fff; border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 10px; font-size: 11px;">
+            <option value="NEUTRAL">🌐 Scenario: Neutral Baseline</option>
+            <option value="MIDDLE_EAST_WAR_CRISIS">💥 Middle East Shock (Crude Spike & Put Favor)</option>
+            <option value="GLOBAL_DEESCALATION_RELIEF">🕊️ Peace Talks Relief Rally (Call Favor)</option>
+            <option value="US_FED_HAWKISH_SURPRISE">🦅 Fed Hawkish Shock (DXY & Yield Surge)</option>
+          </select>
+          <button onclick="triggerMacroPoll()" class="btn-serq-secondary" style="flex: 1; padding: 8px 10px; font-size: 11px;">
+            🔄 Poll Cues
+          </button>
+          <button onclick="triggerMacroTrain()" class="btn-serq-secondary" style="flex: 1; padding: 8px 10px; font-size: 11px;">
+            ⚡ Train AI
+          </button>
+        </div>
+      </div>
 
-        <button class="btn-add-note-glass" onclick="event.stopPropagation(); triggerSquareOffAll()">
-          <span>Add Note (15:15 Square-Off Guard)</span>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-          </svg>
-        </button>
+      <!-- AI Self-Learning Adaptive Engine Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">ONLINE LEARNING (RLS & THOMPSON)</div>
+            <h3>Adaptive Regime Radar</h3>
+            <p>Continuous walk-forward weights with tax-aware loss</p>
+          </div>
+          <span id="ai-epoch-badge" class="tag-badge tag-feasible">Epoch 1</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #090e15; border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px;">
+          <div>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">REGIME DETECTION</div>
+            <div id="ai-regime-text" style="font-weight: 800; color: var(--emerald); font-size: 14px; margin-top: 2px;">TRENDING BULL</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">EXPECTED WIN RATE</div>
+            <div id="ai-winrate-text" style="font-weight: 800; color: var(--emerald); font-family: 'JetBrains Mono', monospace; font-size: 15px; margin-top: 2px;">57.1%</div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: var(--text-muted);">Fee hurdle: ₹52.02 / lot deducted mathematically</span>
+          <button onclick="triggerAIRetrain()" class="btn-serq-secondary" style="padding: 6px 12px; font-size: 10px; font-weight: 800;">
+            ⚡ Run Adaptation Step
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Open Positions -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">ACTIVE OPEN POSITIONS</span>
+        <span id="pos-count" class="tag-badge tag-feasible">0 Open</span>
+      </div>
+      <div class="serq-list-wrap" id="positions-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">
+          No open positions. System standing down or scanning.
+        </div>
+      </div>
+
+      <!-- Active Option Chain Quotes -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">ACTIVE OPTION QUOTES (65 QTY)</span>
+        <button onclick="testBuyOrder()" class="btn-buy-serq">⚡ Test Paper Buy (1 Lot)</button>
+      </div>
+      <div class="serq-list-wrap" id="quotes-list">
+        <!-- Dynamically injected quotes -->
       </div>
 
     </section>
 
+    <!-- ======================================================== -->
+    <!-- TAB 2: ARBITRAGE & SYSTEM RISK BOUNDARIES                -->
+    <!-- ======================================================== -->
+    <section id="tab-arbitrage" class="tab-content">
+      
+      <!-- Capital Feasibility Proof -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">SEBI & MARGIN GOVERNANCE</div>
+            <h3>₹3,000 Capital Feasibility Proof</h3>
+            <p>SPAN Margin Boundary Analysis</p>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: var(--text-soft); line-height: 1.6; background: #090e15; border: 1px solid var(--card-border); border-radius: 12px; padding: 14px;">
+          Put-Call Parity and Box Spreads require shorting options / synthetic futures. Under SEBI/NSE SPAN margins, shorting 1 lot (65 units) requires <strong>₹1,20,000 - ₹1,50,000</strong>.
+          Under strict capital governance of ₹3,000, multi-leg arbitrage orders are mathematically flagged as <span class="tag-badge tag-infeasible">CAPITAL_INFEASIBLE</span> to guarantee zero account deficit.
+        </div>
+      </div>
+
+      <!-- Arbitrage Scanner -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">SYNTHETIC MISPRICING SCANNER</span>
+        <button onclick="refreshArbitrage()" class="btn-serq-secondary" style="padding: 4px 10px; font-size: 10px;">Scan Now</button>
+      </div>
+      <div class="serq-list-wrap" id="arbitrage-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">
+          Scanning orderbooks for synthetic mispricing...
+        </div>
+      </div>
+
+      <!-- Active Risk Boundaries Grid -->
+      <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; padding: 0 4px;">
+        INSTITUTIONAL RISK BOUNDARIES
+      </div>
+      <div class="metrics-2x2-grid">
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">MAX RISK / TRADE</div>
+          <div class="metric-cell-val" style="color: var(--accent-amber);">₹150.00</div>
+          <div class="metric-cell-sub">Hard Stop Invariant (~2.3 pts)</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">DAILY LOSS CEILING</div>
+          <div class="metric-cell-val" style="color: var(--accent-red);">₹300.00</div>
+          <div class="metric-cell-sub">Auto Kill-Switch Latch</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">MAX ALLOWED LOTS</div>
+          <div class="metric-cell-val">1 Lot (65)</div>
+          <div class="metric-cell-sub">SEBI Micro-Capital Lock</div>
+        </div>
+        <div class="metric-serq-cell">
+          <div class="metric-cell-lbl">STALENESS GUARD</div>
+          <div class="metric-cell-val" style="color: var(--emerald);">1,500 ms</div>
+          <div class="metric-cell-sub">Fail-Closed Tick Invariant</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: AUDITABLE ORDERS & EXECUTED TRADES                -->
+    <!-- ======================================================== -->
+    <section id="tab-orders" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">AUDITABLE ORDER LOG</span>
+        <button onclick="loadOrders()" class="btn-serq-secondary" style="padding: 4px 10px; font-size: 10px;">Refresh</button>
+      </div>
+      <div class="serq-list-wrap" id="orders-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">
+          No orders recorded yet.
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">EXECUTED TRADES (WITH STATUTORY TAXES)</span>
+        <button onclick="loadTrades()" class="btn-serq-secondary" style="padding: 4px 10px; font-size: 10px;">Refresh</button>
+      </div>
+      <div class="serq-list-wrap" id="trades-list">
+        <div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">
+          No executed trades yet.
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <!-- Floating Refresh Icon Button from Screenshot -->
-  <button class="floating-refresh-btn" onclick="manualRefresh()" title="Refresh HUD">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <polyline points="23 4 23 10 17 10"></polyline>
-      <polyline points="1 20 1 14 7 14"></polyline>
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-    </svg>
-  </button>
-
   <script>
-    let activeStep = 3;
-    let ws;
-    let lastPing = Date.now();
+    // Tab switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-pill-btn').forEach(el => el.classList.remove('active'));
+      const activeContent = document.getElementById(tabId);
+      if (activeContent) activeContent.classList.add('active');
 
-    function selectStep(step) {
-      activeStep = step;
+      const navBtn = document.getElementById('nav-' + tabId);
+      if (navBtn) navBtn.classList.add('active');
 
-      // Update Stepper Rail on left
-      document.querySelectorAll('.timeline-step-row').forEach((el, idx) => {
-        el.classList.toggle('active', (idx + 1) === step);
-      });
-
-      // Update Mobile Switcher Pills
-      document.querySelectorAll('.pill-tab').forEach((el, idx) => {
-        el.classList.toggle('active', (idx + 1) === step);
-      });
-
-      // Update 3D Stage Deck focus class
-      const deck = document.getElementById('cascadeDeck');
-      if (deck) {
-        deck.className = 'cascade-stage-wrap focus-' + step;
-      }
-
-      // Update mobile cards visibility
-      document.querySelectorAll('.phone-mockup').forEach((el, idx) => {
-        el.classList.toggle('active-mobile', (idx + 1) === step);
-      });
-
-      if (step === 2) {
-        drawRouteMap();
-      }
-    }
-
-    // Canvas Route Map (Drawing the glowing emerald polyline path from screenshot)
-    function drawRouteMap() {
-      const canvas = document.getElementById('routeCanvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width;
-      const h = canvas.height;
-
-      ctx.clearRect(0, 0, w, h);
-
-      // Dark city grid / streets background
-      ctx.strokeStyle = '#101722';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < w; x += 35) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-      for (let y = 0; y < h; y += 28) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-
-      // Glowing route polyline
-      ctx.shadowColor = '#00e676';
-      ctx.shadowBlur = 18;
-      ctx.strokeStyle = '#00e676';
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      ctx.beginPath();
-      ctx.moveTo(40, 115);
-      ctx.lineTo(85, 90);
-      ctx.lineTo(135, 100);
-      ctx.lineTo(185, 55);
-      ctx.lineTo(240, 75);
-      ctx.lineTo(295, 40);
-      ctx.lineTo(355, 30);
-      ctx.stroke();
-
-      // Start waypoint dot
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = '#00e676';
-      ctx.beginPath();
-      ctx.arc(40, 115, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // End Destination Pin with pulsing radar ring
-      ctx.shadowBlur = 24;
-      ctx.strokeStyle = 'rgba(0, 230, 118, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(355, 30, 14, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.fillStyle = '#00e676';
-      ctx.beginPath();
-      ctx.arc(355, 30, 7, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#06090e';
-      ctx.beginPath();
-      ctx.arc(355, 30, 3, 0, Math.PI * 2);
-      ctx.fill();
+      if (tabId === 'tab-arbitrage') refreshArbitrage();
+      if (tabId === 'tab-orders') { loadOrders(); loadTrades(); }
     }
 
     // WebSocket Stream Connection
+    let ws;
+    let lastPing = Date.now();
+
     function initWebSocket() {
       const loc = window.location;
       const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1550,127 +1138,339 @@ html_content = """<!DOCTYPE html>
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log("SerQ WebSocket connected.");
+        console.log("SerQ HUD WebSocket connected.");
+        const dot = document.getElementById('live-dot');
+        if (dot) dot.style.background = "var(--emerald)";
       };
 
       ws.onmessage = (evt) => {
         const now = Date.now();
-        document.getElementById('top-ws-ping').innerText = (now - lastPing) + ' ms';
+        const pingEl = document.getElementById('ws-latency');
+        if (pingEl) pingEl.innerText = (now - lastPing) + ' ms';
         lastPing = now;
 
         const data = JSON.parse(evt.data);
-        renderSerQData(data);
+        updateUI(data);
       };
 
       ws.onclose = () => {
+        const dot = document.getElementById('live-dot');
+        if (dot) dot.style.background = "var(--accent-red)";
         setTimeout(initWebSocket, 2000);
       };
     }
 
-    function renderSerQData(data) {
-      // 1. Account Telemetry
-      if (data.pnl) {
-        document.getElementById('live-cash-disp').innerText = '₹' + data.pnl.cash.toFixed(2);
-        const netEl = document.getElementById('live-pnl-disp');
-        netEl.innerText = '₹' + data.pnl.net_pnl.toFixed(2);
-        netEl.style.color = data.pnl.net_pnl >= 0 ? 'var(--emerald)' : 'var(--accent-red)';
-        document.getElementById('live-fees-disp').innerText = '₹' + data.pnl.fees.toFixed(2);
-      }
-
-      // 2. Scheduler
+    function updateUI(data) {
+      // 0. Market Routine Scheduler
       if (data.scheduler) {
-        document.getElementById('live-time-disp').innerText = data.scheduler.ist_time;
-        document.getElementById('c2-eta').innerText = data.scheduler.current_phase.replace(/_/g, ' ');
-        const chk1 = document.getElementById('chk1-label');
-        if (chk1) chk1.innerText = 'Completed (' + data.scheduler.current_phase + ' • Window Valid)';
+        const sch = data.scheduler;
+        const clockEl = document.getElementById('ist-clock');
+        if (clockEl) clockEl.innerText = sch.ist_time + ' • ' + sch.current_phase.replace(/_/g, ' ');
+        
+        const phaseBadge = document.getElementById('scheduler-phase-badge');
+        if (phaseBadge) {
+          phaseBadge.innerText = sch.current_phase.replace(/_/g, ' ');
+          if (sch.is_trading_permitted) {
+            phaseBadge.style.color = 'var(--emerald)';
+            phaseBadge.style.borderColor = 'var(--emerald-border)';
+            phaseBadge.style.background = 'rgba(0, 230, 118, 0.12)';
+          } else {
+            phaseBadge.style.color = 'var(--accent-amber)';
+            phaseBadge.style.borderColor = 'rgba(255, 179, 0, 0.4)';
+            phaseBadge.style.background = 'rgba(255, 179, 0, 0.12)';
+          }
+        }
+
+        const permBadge = document.getElementById('trading-perm-badge');
+        if (permBadge) {
+          permBadge.innerText = sch.is_trading_permitted ? '🟢 ACTIVE' : '⏸️ STAND-DOWN';
+          permBadge.className = 'tag-badge ' + (sch.is_trading_permitted ? 'tag-feasible' : 'tag-infeasible');
+        }
+
+        const chkStep1 = document.getElementById('chk-step-1');
+        if (chkStep1) chkStep1.innerText = sch.current_phase + ' (Permitted: ' + (sch.is_trading_permitted ? 'YES' : 'NO') + ')';
       }
 
-      // 3. Card 1 Macro
+      // 1. Kill switch
+      const ksAlert = document.getElementById('kill-alert');
+      if (data.kill_switch && data.kill_switch.is_engaged) {
+        ksAlert.style.display = 'block';
+        document.getElementById('kill-reason').innerText = data.kill_switch.reason;
+      } else {
+        ksAlert.style.display = 'none';
+      }
+
+      // 2. PnL & Balances
+      if (data.pnl) {
+        document.getElementById('cash-val').innerText = '₹' + data.pnl.cash.toFixed(2);
+        document.getElementById('port-val').innerText = '₹' + data.pnl.total_val.toFixed(2);
+        document.getElementById('total-fees').innerText = '₹' + data.pnl.fees.toFixed(2);
+        
+        const netEl = document.getElementById('net-pnl');
+        netEl.innerText = '₹' + data.pnl.net_pnl.toFixed(2);
+        netEl.className = 'metric-cell-val ' + (data.pnl.net_pnl >= 0 ? 'val-profit' : 'val-loss');
+        
+        const pctEl = document.getElementById('pnl-pct');
+        pctEl.innerText = data.pnl.net_pct.toFixed(2) + '% Return';
+        pctEl.className = 'metric-cell-sub ' + (data.pnl.net_pct >= 0 ? 'val-profit' : 'val-loss');
+        
+        document.getElementById('drawdown-val').innerText = 'Drawdown: ' + data.pnl.drawdown_pct.toFixed(1) + '%';
+      }
+
+      // 3. AI Learning Telemetry
+      if (data.ml) {
+        const epochBadge = document.getElementById('ai-epoch-badge');
+        if (epochBadge) epochBadge.innerText = 'Epoch ' + data.ml.epoch;
+        
+        const regimeEl = document.getElementById('ai-regime-text');
+        if (regimeEl) {
+          regimeEl.innerText = data.ml.regime.replace(/_/g, ' ');
+          if (data.ml.regime === 'CHOPPY_CONSOLIDATION') {
+            regimeEl.style.color = 'var(--accent-amber)';
+          } else if (data.ml.regime === 'TRENDING_BULL') {
+            regimeEl.style.color = 'var(--emerald)';
+          } else {
+            regimeEl.style.color = 'var(--accent-cyan)';
+          }
+        }
+        
+        const winEl = document.getElementById('ai-winrate-text');
+        if (winEl) winEl.innerText = (data.ml.win_rate * 100).toFixed(1) + '%';
+      }
+
+      // 3.5 Global Macro Telemetry
       if (data.global_macro) {
         const gm = data.global_macro;
-        document.getElementById('c1-brent').innerText = '$' + gm.crude.toFixed(2);
-        document.getElementById('c1-brent-chg').innerText = (gm.crude_chg >= 0 ? '+' : '') + gm.crude_chg.toFixed(1) + '%';
-        document.getElementById('c1-dxy').innerText = gm.dxy.toFixed(2);
-        document.getElementById('c1-gap').innerText = (gm.gift_nifty_gap >= 0 ? '+' : '') + gm.gift_nifty_gap.toFixed(1);
-        document.getElementById('c1-fear').innerText = gm.fear_index.toFixed(2);
-        document.getElementById('c1-synthesis').innerText = 'Posture: ' + gm.posture + ' • Crude: $' + gm.crude.toFixed(2);
-        document.getElementById('chk2-label').innerText = 'Completed (' + gm.posture + ' Posture Valid)';
-      }
-
-      // 4. Card 2 Spot & Orderbook
-      if (data.quotes && data.quotes['NIFTY_SPOT']) {
-        const spot = data.quotes['NIFTY_SPOT'];
-        document.getElementById('c2-spot').innerText = spot.mid.toFixed(2) + ' Spot';
-      }
-
-      if (data.quotes) {
-        const qList = document.getElementById('c2-quotes-list');
-        let html = '';
-        for (const [sym, q] of Object.entries(data.quotes)) {
-          if (sym === 'NIFTY_SPOT') continue;
-          const isCall = sym.endsWith('_CE');
-          html += '<div class="quote-item-row">' +
-            '<div>' +
-              '<div style="font-weight:700; font-size:11px; color:' + (isCall ? 'var(--emerald)' : '#c084fc') + '">' + sym + '</div>' +
-              '<div style="font-size:9px; color:var(--text-muted);">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + '</div>' +
-            '</div>' +
-            '<div style="display:flex; align-items:center; gap:8px;">' +
-              '<span style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:12px;">₹' + q.mid.toFixed(2) + '</span>' +
-              '<button class="btn-quick-buy" onclick="event.stopPropagation(); orderOption(\'' + sym + '\', \'BUY\', ' + q.ask + ')">BUY 65</button>' +
-            '</div>' +
-          '</div>';
+        const crudeVal = document.getElementById('macro-crude-val');
+        if (crudeVal) crudeVal.innerText = '$' + gm.crude.toFixed(2);
+        
+        const crudeChg = document.getElementById('macro-crude-chg');
+        if (crudeChg) {
+          crudeChg.innerText = (gm.crude_chg >= 0 ? '+' : '') + gm.crude_chg.toFixed(1) + '%';
+          crudeChg.style.color = gm.crude_chg > 2.0 ? 'var(--accent-red)' : 'var(--emerald)';
         }
-        qList.innerHTML = html;
+
+        const dxyVal = document.getElementById('macro-dxy-val');
+        if (dxyVal) dxyVal.innerText = gm.dxy.toFixed(2);
+
+        const giftVal = document.getElementById('macro-gift-gap-val');
+        if (giftVal) {
+          giftVal.innerText = (gm.gift_nifty_gap >= 0 ? '+' : '') + gm.gift_nifty_gap.toFixed(1);
+          giftVal.style.color = gm.gift_nifty_gap >= 0 ? 'var(--emerald)' : 'var(--accent-red)';
+        }
+
+        const expVal = document.getElementById('macro-exp-gap-val');
+        if (expVal) {
+          expVal.innerText = (gm.expected_gap >= 0 ? '+' : '') + gm.expected_gap.toFixed(1);
+          expVal.style.color = gm.expected_gap >= 0 ? 'var(--emerald)' : 'var(--accent-red)';
+        }
+
+        const fearText = document.getElementById('macro-fear-text');
+        const fearBar = document.getElementById('macro-fear-bar');
+        if (fearText && fearBar) {
+          const fearPct = Math.round(gm.fear_index * 100);
+          fearBar.style.width = Math.min(100, Math.max(5, fearPct)) + '%';
+          if (gm.fear_index >= 0.65) {
+            fearBar.style.background = 'var(--accent-red)';
+            fearText.style.color = 'var(--accent-red)';
+            fearText.innerText = gm.fear_index.toFixed(2) + ' (CRITICAL TENSION ALERT)';
+          } else if (gm.fear_index >= 0.35) {
+            fearBar.style.background = 'var(--accent-amber)';
+            fearText.style.color = 'var(--accent-amber)';
+            fearText.innerText = gm.fear_index.toFixed(2) + ' (ELEVATED CAUTION)';
+          } else {
+            fearBar.style.background = 'var(--emerald)';
+            fearText.style.color = 'var(--emerald)';
+            fearText.innerText = gm.fear_index.toFixed(2) + ' (NORMAL / LOW RISK)';
+          }
+        }
+
+        const postBadge = document.getElementById('macro-posture-badge');
+        if (postBadge) {
+          postBadge.innerText = gm.posture.replace(/_/g, ' ');
+          if (gm.posture === 'FAVOR_PUT_BREAKOUT') {
+            postBadge.style.background = 'rgba(255, 51, 102, 0.15)';
+            postBadge.style.color = 'var(--accent-red)';
+            postBadge.style.border = '1px solid var(--accent-red)';
+          } else if (gm.posture === 'FAVOR_CALL_BREAKOUT') {
+            postBadge.style.background = 'rgba(0, 230, 118, 0.15)';
+            postBadge.style.color = 'var(--emerald)';
+            postBadge.style.border = '1px solid var(--emerald)';
+          } else {
+            postBadge.style.background = 'rgba(100, 116, 139, 0.15)';
+            postBadge.style.color = 'var(--text-muted)';
+            postBadge.style.border = '1px solid var(--card-border)';
+          }
+        }
+
+        const synEl = document.getElementById('macro-synthesis-text');
+        if (synEl && gm.synthesis) {
+          synEl.innerText = gm.synthesis;
+        }
+
+        const chkStep2 = document.getElementById('chk-step-2');
+        if (chkStep2) chkStep2.innerText = 'Posture: ' + gm.posture + ' • Crude: $' + gm.crude.toFixed(2);
       }
 
-      // 5. Card 3 Active Trade & Auto-Pilot
+      // 3.8 Autonomous Auto-Pilot & Trailing Stop Telemetry
       if (data.auto_trade) {
         const at = data.auto_trade;
-        const autoPill = document.getElementById('auto-status-pill');
-        const btnAction = document.getElementById('btn-action-label');
-
-        if (autoPill) {
-          autoPill.innerText = at.is_enabled ? 'AUTO ON' : 'PAUSED';
-          autoPill.style.color = at.is_enabled ? 'var(--emerald)' : 'var(--accent-amber)';
+        const atBadge = document.getElementById('auto-trade-badge');
+        const btnToggle = document.getElementById('btn-toggle-auto');
+        if (atBadge) {
+          atBadge.innerText = at.is_enabled ? '🟢 AUTO ON' : '⏸️ PAUSED';
+          atBadge.className = 'tag-badge ' + (at.is_enabled ? 'tag-feasible' : 'tag-infeasible');
         }
-        if (btnAction) {
-          btnAction.innerText = at.is_enabled ? 'Complete Job (Auto Active)' : 'Resume Auto-Pilot';
+        if (btnToggle) {
+          btnToggle.innerHTML = at.is_enabled ? '<span>Complete Trade (Auto Active)</span><span>→</span>' : '<span>▶️ Resume Auto-Pilot</span><span>→</span>';
         }
 
-        const tradePanel = document.getElementById('live-trade-wrap');
-        if (at.active_trades && at.active_trades.length > 0) {
-          const t = at.active_trades[0];
-          document.getElementById('t-sym-title').innerText = t.symbol + ' (' + t.quantity + ' Qty)';
-          document.getElementById('t-ratchet-badge').innerText = t.state.replace('STATE_', '');
-          document.getElementById('t-entry').innerText = '₹' + t.entry_price.toFixed(2);
-          document.getElementById('t-ltp').innerText = '₹' + t.current_price.toFixed(2);
-          document.getElementById('t-stop').innerText = '₹' + t.stop_price.toFixed(2);
-          document.getElementById('t-target').innerText = '₹' + t.target_price.toFixed(2);
+        const mtContainer = document.getElementById('managed-trade-container');
+        if (mtContainer) {
+          if (at.active_trades && at.active_trades.length > 0) {
+            let tHtml = '';
+            at.active_trades.forEach(t => {
+              const pts = t.delta_pts;
+              const grossInr = pts * t.quantity;
+              const isProfit = pts >= 0;
+              const stateBadge = t.state.replace('STATE_', '').replace(/_/g, ' ');
+              const pctToTarget = Math.min(100, Math.max(0, ((t.current_price - t.entry_price) / (t.target_price - t.entry_price)) * 100));
 
-          const grossInr = t.delta_pts * t.quantity;
-          const isProfit = t.delta_pts >= 0;
-          document.getElementById('t-move-pnl').innerText = 'Move: ' + (isProfit ? '+' : '') + t.delta_pts.toFixed(2) + ' pts (' + (isProfit ? '+' : '') + '₹' + grossInr.toFixed(2) + ')';
-          document.getElementById('t-move-pnl').style.color = isProfit ? 'var(--emerald)' : 'var(--accent-red)';
-          tradePanel.style.display = 'block';
+              tHtml += '<div class="active-trade-box">' +
+                '<div class="trade-box-top">' +
+                  '<span style="font-weight: 800; font-size: 13px; color:#fff;">' + t.symbol + ' (' + t.quantity + ' Qty)</span>' +
+                  '<span class="tag-badge tag-feasible">' + stateBadge + '</span>' +
+                '</div>' +
+                '<div class="trade-stat-quad">' +
+                  '<div><span style="color:var(--text-muted);">ENTRY:</span> ₹' + t.entry_price.toFixed(2) + '</div>' +
+                  '<div><span style="color:var(--text-muted);">LTP:</span> ₹' + t.current_price.toFixed(2) + '</div>' +
+                  '<div><span style="color:var(--accent-red);">STOP:</span> ₹' + t.stop_price.toFixed(2) + '</div>' +
+                  '<div><span style="color:var(--emerald);">TARGET:</span> ₹' + t.target_price.toFixed(2) + '</div>' +
+                '</div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; margin-bottom:6px;">' +
+                  '<span class="' + (isProfit ? 'val-profit' : 'val-loss') + '">Move: ' + (pts >= 0 ? '+' : '') + pts.toFixed(2) + ' pts (' + (isProfit ? '+' : '') + '₹' + grossInr.toFixed(2) + ')</span>' +
+                  '<span style="color:var(--text-muted); font-size:10px;">Theta Stop: ' + Math.round(t.elapsed_sec) + 's / 900s</span>' +
+                '</div>' +
+                '<div class="checklist-track-bg">' +
+                  '<div class="checklist-fill-emerald" style="width:' + pctToTarget + '%;"></div>' +
+                '</div>' +
+              '</div>';
+            });
+            mtContainer.innerHTML = tHtml;
 
-          // Progress bar updates
-          document.getElementById('c3-progress-count').innerText = '6 of 6 completed';
-          document.getElementById('c3-progress-fill').style.width = '100%';
-          document.getElementById('chk3-glyph').className = 'status-glyph completed';
-          document.getElementById('chk3-glyph').innerText = '✓';
-          document.getElementById('chk4-glyph').className = 'status-glyph in-progress';
-        } else {
-          tradePanel.style.display = 'none';
-          document.getElementById('c3-progress-count').innerText = '3 of 6 completed';
-          document.getElementById('c3-progress-fill').style.width = '50%';
-          document.getElementById('chk3-glyph').className = 'status-glyph in-progress';
-          document.getElementById('chk3-glyph').innerText = '';
-          document.getElementById('chk4-glyph').className = 'status-glyph pending';
+            // Update Checklist to 6/6
+            const pBadge = document.getElementById('chk-progress-badge');
+            if (pBadge) pBadge.innerText = '6 of 6 (100%)';
+            const pPct = document.getElementById('chk-progress-pct');
+            if (pPct) pPct.innerText = '100% Verified (Active Trade)';
+            const pBar = document.getElementById('chk-progress-bar');
+            if (pBar) pBar.style.width = '100%';
+            const g5 = document.getElementById('chk-glyph-5');
+            if (g5) { g5.className = 'chk-pill-glyph in-progress'; }
+          } else {
+            let histNote = '';
+            if (at.recent_history && at.recent_history.length > 0) {
+              const last = at.recent_history[at.recent_history.length - 1];
+              histNote = '<div style="margin-top:6px; font-size:10px; color:var(--emerald); font-family:\'JetBrains Mono\',monospace;">Last Trade: ' + last.symbol + ' -> Net ₹' + (last.net_pnl >= 0 ? '+' : '') + last.net_pnl.toFixed(2) + ' (' + last.reason + ')</div>';
+            }
+            mtContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:11px;">' +
+              'Scanning orderbooks. Auto-Pilot enters single-leg breakouts when ML conviction ≥ 55% and Net P&L clears the ₹52 fee hurdle.' +
+              histNote +
+            '</div>';
+
+            const pBadge = document.getElementById('chk-progress-badge');
+            if (pBadge) pBadge.innerText = '5 of 6 (83%)';
+            const pPct = document.getElementById('chk-progress-pct');
+            if (pPct) pPct.innerText = '83% Verified (Scanning)';
+            const pBar = document.getElementById('chk-progress-bar');
+            if (pBar) pBar.style.width = '83%';
+            const g5 = document.getElementById('chk-glyph-5');
+            if (g5) { g5.className = 'chk-pill-glyph pending'; }
+          }
+        }
+      }
+
+      // 4. Quotes
+      if (data.quotes) {
+        const spot = data.quotes['NIFTY_SPOT'];
+        if (spot) {
+          const spEl = document.getElementById('spot-price');
+          if (spEl) spEl.innerText = spot.mid.toFixed(2);
+        }
+
+        const qList = document.getElementById('quotes-list');
+        if (qList) {
+          let html = '';
+          for (const [sym, q] of Object.entries(data.quotes)) {
+            if (sym === 'NIFTY_SPOT') continue;
+            const isCall = sym.endsWith('_CE');
+            const symColor = isCall ? 'var(--emerald)' : 'var(--accent-purple)';
+            html += '<div class="serq-list-row">' +
+              '<div>' +
+                '<div class="row-sym-bold" style="color:' + symColor + '">' + sym + '</div>' +
+                '<div class="row-sub-detail">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + ' | Imbal: ' + (q.imbalance * 100).toFixed(0) + '%</div>' +
+              '</div>' +
+              '<div style="display:flex; align-items:center; gap:8px;">' +
+                '<span style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;">₹' + q.mid.toFixed(2) + '</span>' +
+                '<button class="btn-buy-serq" onclick="orderOption(\'' + sym + '\', \'BUY\', ' + q.ask + ')">BUY 65</button>' +
+              '</div>' +
+            '</div>';
+          }
+          qList.innerHTML = html;
+        }
+      }
+
+      // 5. Positions
+      if (data.positions) {
+        const posCnt = document.getElementById('pos-count');
+        if (posCnt) posCnt.innerText = data.positions.length + ' Open';
+        const pList = document.getElementById('positions-list');
+        if (pList) {
+          if (data.positions.length === 0) {
+            pList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">No open positions. System standing down or scanning.</div>';
+          } else {
+            let posHtml = '';
+            data.positions.forEach(p => {
+              posHtml += '<div class="serq-list-row">' +
+                '<div>' +
+                  '<div class="row-sym-bold">' + p.side + ' ' + p.quantity + 'x ' + p.symbol + '</div>' +
+                  '<div class="row-sub-detail">Avg: ₹' + p.avg.toFixed(2) + ' | LTP: ₹' + p.ltp.toFixed(2) + ' | Costs: ₹' + p.costs.toFixed(2) + '</div>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:8px;">' +
+                  '<span style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;" class="' + (p.unrealized >= 0 ? 'val-profit' : 'val-loss') + '">₹' + p.unrealized.toFixed(2) + '</span>' +
+                  '<button class="btn-serq-secondary btn-serq-danger" style="padding: 4px 10px; font-size: 10px;" onclick="orderOption(\'' + p.symbol + '\', \'SELL\', ' + p.ltp + ')">EXIT</button>' +
+                '</div>' +
+              '</div>';
+            });
+            pList.innerHTML = posHtml;
+          }
         }
       }
     }
 
-    // Actions
+    // Interactive Actions
+    async function engageKillSwitch() {
+      if (!confirm("Are you sure you want to engage the Emergency Kill Switch?")) return;
+      await fetch('/api/kill-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'engage', reason: 'Operator engaged from SerQ HUD' })
+      });
+    }
+
+    async function resetKillSwitch() {
+      await fetch('/api/kill-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset', token: 'CONFIRM_RESET' })
+      });
+    }
+
+    async function resetPaperAccount() {
+      if (!confirm("Reset paper account virtual balance to ₹3,000?")) return;
+      await fetch('/api/paper/reset', { method: 'POST' });
+    }
+
     async function toggleAutoPilot() {
       const resp = await fetch('/api/auto-trade/status');
       const st = await resp.json();
@@ -1683,7 +1483,7 @@ html_content = """<!DOCTYPE html>
     }
 
     async function triggerSquareOffAll() {
-      if (!confirm("Execute emergency 15:15 square-off for all open positions immediately?")) return;
+      if (!confirm("Execute regulatory square-off for all open positions immediately?")) return;
       const resp = await fetch('/api/auto-trade/square-off', { method: 'POST' });
       const data = await resp.json();
       if (data.success) {
@@ -1691,29 +1491,56 @@ html_content = """<!DOCTYPE html>
       }
     }
 
-    async function engageKillSwitch() {
-      if (!confirm("ENGAGE EMERGENCY KILL SWITCH? All orders will be rejected.")) return;
-      await fetch('/api/kill-switch', {
+    async function triggerAIRetrain() {
+      const resp = await fetch('/api/ml/retrain', { method: 'POST' });
+      const res = await resp.json();
+      if (res.success) {
+        alert(res.message);
+      }
+    }
+
+    async function onScenarioSelect(scenario) {
+      await fetch('/api/global-macro/scenario', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'engage', reason: 'Operator engaged from SerQ HUD' })
+        body: JSON.stringify({ scenario: scenario })
       });
+    }
+
+    async function triggerMacroTrain() {
+      const resp = await fetch('/api/global-macro/train', { method: 'POST' });
+      const data = await resp.json();
+      if (data.success) {
+        alert("Multimodal AI Trained!\nEpoch: " + data.epoch + "\nSamples: " + data.num_samples + "\nDirectional Accuracy: " + (data.directional_accuracy*100).toFixed(1) + "%\nMSE: " + data.train_mse + "\nWeights updated.");
+      } else {
+        alert("Training failed: " + data.error);
+      }
     }
 
     async function triggerMacroPoll() {
       const resp = await fetch('/api/global-macro/poll', { method: 'POST' });
       const data = await resp.json();
       if (data.status === 'SUCCESS') {
-        alert("Synced Live World Cues!\nBrent: $" + data.brent + " | DXY: " + data.dxy + "\nEst Gap: " + data.gap_pts + " pts");
+        alert("Live World Cues Synced!\nBrent: $" + data.brent + " | DXY: " + data.dxy + "\nEst Gap: " + data.gap_pts + " pts\nPosture: " + data.posture + "\nNews Headlines Ingested: " + data.news_count);
+      } else {
+        alert("Macro poll failed: " + data.error);
       }
     }
 
-    async function onScenarioSelect(sc) {
-      await fetch('/api/global-macro/scenario', {
+    async function advancePhase() {
+      const selectEl = document.getElementById('phase-selector');
+      const phase = selectEl.value;
+      const resp = await fetch('/api/scheduler/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: sc })
+        body: JSON.stringify({ phase: phase })
       });
+      const data = await resp.json();
+      if (data.success) {
+        console.log("Advanced session phase to:", phase);
+      } else {
+        alert("Failed to set phase: " + data.error);
+      }
     }
 
     async function orderOption(symbol, side, price) {
@@ -1724,19 +1551,101 @@ html_content = """<!DOCTYPE html>
       });
       const res = await resp.json();
       if (res.error) alert(res.error);
-      else if (res.status === 'REJECTED') alert("Risk Rejection: " + res.rejection_reason);
+      else if (res.status === 'REJECTED') alert("Order Rejected by Risk Engine: " + res.rejection_reason);
     }
 
-    function manualRefresh() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'PING' }));
+    async function testBuyOrder() {
+      const quotesResp = await fetch('/api/quotes');
+      const quotes = await quotesResp.json();
+      for (const [sym, q] of Object.entries(quotes)) {
+        if (sym.includes('_CE') && q.best_ask < 35.0) {
+          orderOption(sym, 'BUY', q.best_ask);
+          return;
+        }
       }
-      drawRouteMap();
+      alert("No suitable option under ₹35 found in active quotes.");
     }
 
+    async function refreshArbitrage() {
+      const resp = await fetch('/api/arbitrage/opportunities');
+      const data = await resp.json();
+      const listEl = document.getElementById('arbitrage-list');
+      
+      if (!data.opportunities || data.opportunities.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">No theoretical arbitrage detected at current spot.</div>';
+        return;
+      }
+
+      let html = '';
+      data.opportunities.forEach(o => {
+        html += '<div class="serq-list-row">' +
+          '<div>' +
+            '<div class="row-sym-bold">' + o.strategy + '</div>' +
+            '<div class="row-sub-detail">' + o.symbol + ' | Action: ' + o.action + '</div>' +
+            '<div class="row-sub-detail" style="margin-top:4px; color:#ff99aa;">' + (o.infeasibility_reason || 'Feasible') + '</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<span class="tag-badge ' + (o.is_capital_feasible ? 'tag-feasible' : 'tag-infeasible') + '">' +
+              (o.is_capital_feasible ? 'FEASIBLE' : 'CAPITAL INFEASIBLE') +
+            '</span>' +
+          '</div>' +
+        '</div>';
+      });
+      listEl.innerHTML = html;
+    }
+
+    async function loadOrders() {
+      const resp = await fetch('/api/orders');
+      const orders = await resp.json();
+      const oList = document.getElementById('orders-list');
+      if (orders.length === 0) {
+        oList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">No orders recorded.</div>';
+        return;
+      }
+      let html = '';
+      orders.forEach(o => {
+        html += '<div class="serq-list-row">' +
+          '<div>' +
+            '<div class="row-sym-bold">' + o.side + ' ' + o.quantity + 'x ' + o.symbol + '</div>' +
+            '<div class="row-sub-detail">Status: <strong>' + o.status + '</strong> | ID: ' + o.order_id + '</div>' +
+            (o.rejection_reason ? '<div class="row-sub-detail" style="color:var(--accent-red);">' + o.rejection_reason + '</div>' : '') +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800;">₹' + (o.fill_price ? o.fill_price.toFixed(2) : o.requested_price.toFixed(2)) + '</div>' +
+            '<div class="row-sub-detail">Fees: ₹' + o.total_costs.toFixed(2) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      oList.innerHTML = html;
+    }
+
+    async function loadTrades() {
+      const resp = await fetch('/api/trades');
+      const trades = await resp.json();
+      const tList = document.getElementById('trades-list');
+      if (trades.length === 0) {
+        tList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">No trades executed.</div>';
+        return;
+      }
+      let html = '';
+      trades.forEach(t => {
+        html += '<div class="serq-list-row">' +
+          '<div>' +
+            '<div class="row-sym-bold">' + t.side + ' ' + t.quantity + 'x ' + t.symbol + '</div>' +
+            '<div class="row-sub-detail">Turnover: ₹' + t.turnover.toFixed(2) + ' | Brk: ₹' + t.brokerage + ' | STT: ₹' + t.stt + ' | GST: ₹' + t.gst + '</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800;">₹' + t.price.toFixed(2) + '</div>' +
+            '<div class="row-sub-detail val-loss">Fee: ₹' + t.total_costs.toFixed(2) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      tList.innerHTML = html;
+    }
+
+    // Init on load
     window.addEventListener('DOMContentLoaded', () => {
       initWebSocket();
-      drawRouteMap();
     });
   </script>
 </body>
@@ -1746,4 +1655,4 @@ html_content = """<!DOCTYPE html>
 target_path = '/root/nifty-options-arbitrage/dashboard/index.html'
 with open(target_path, 'w', encoding='utf-8') as f:
     f.write(html_content)
-print(f"Written {len(html_content)} bytes cleanly to {target_path}")
+print(f"Successfully generated themed AI trading HUD: {len(html_content)} bytes written to {target_path}")
