@@ -265,7 +265,7 @@ cmd_help() {
     echo -e "  ${C_EMERALD}restart${C_RESET}     Restart the server"
     echo -e "  ${C_EMERALD}status${C_RESET}      Display real-time trading telemetry and account health"
     echo -e "  ${C_EMERALD}logs${C_RESET}        Follow live application server logs"
-    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 56-test regression suite"
+    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 63-test regression suite"
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
