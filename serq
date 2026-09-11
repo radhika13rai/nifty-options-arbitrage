@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# SerQ Institutional CLI Daemon & Manager
+# CodeQuery SerQ — NIFTY Options Arbitrage & Trading Engine
+# ==============================================================================
+
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$DIR"
+
+PID_FILE="$DIR/.serq.pid"
+LOG_DIR="$DIR/logs"
+LOG_FILE="$LOG_DIR/serq.log"
+PORT=8000
+HOST="0.0.0.0"
+URL="http://localhost:$PORT"
+
+mkdir -p "$LOG_DIR"
+
+# Color tokens
+C_RESET="\033[0m"
+C_BOLD="\033[1m"
+C_EMERALD="\033[38;5;48m"
+C_CYAN="\033[38;5;51m"
+C_RED="\033[38;5;197m"
+C_AMBER="\033[38;5;214m"
+C_GRAY="\033[38;5;244m"
+
+banner() {
+    echo -e "${C_EMERALD}${C_BOLD}"
+    echo "  ⬡ CODEQUERY SerQ — Institutional Trading Daemon"
+    echo -e "${C_RESET}${C_GRAY}  NIFTY Options Arbitrage HUD & Auto-Pilot Engine${C_RESET}"
+    echo "  --------------------------------------------------"
+}
+
+is_running() {
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE" 2>/dev/null || true)
+        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    # Fallback: check if uvicorn process exists
+    PID=$(pgrep -f "uvicorn api.app:app" | head -n 1 || true)
+    if [ -n "$PID" ]; then
+        echo "$PID" > "$PID_FILE"
+        return 0
+    fi
+    return 1
+}
+
+cmd_start() {
+    banner
+    if is_running; then
+        PID=$(cat "$PID_FILE")
+        echo -e "${C_AMBER}● Server is already running!${C_RESET}"
+        echo -e "  PID:     ${C_BOLD}$PID${C_RESET}"
+        echo -e "  HUD URL: ${C_CYAN}${C_BOLD}$URL/${C_RESET}"
+        echo -e "  Logs:    ${C_GRAY}$LOG_FILE${C_RESET}"
+        return 0
+    fi
+
+    echo -e "${C_GRAY}Starting background SerQ server on $HOST:$PORT...${C_RESET}"
+    
+    # Launch uvicorn in a new detached session immune to terminal closure
+    setsid nohup python3 -m uvicorn api.app:app --host "$HOST" --port "$PORT" >> "$LOG_FILE" 2>&1 &
+    sleep 0.5
+    PID=$(pgrep -f "uvicorn api.app:app" | head -n 1 || echo $!)
+    echo "$PID" > "$PID_FILE"
+
+    echo -ne "${C_GRAY}Waiting for health-check verification..."
+    HEALTHY=0
+    for i in {1..20}; do
+        sleep 0.5
+        if curl -s -f "$URL/health" > /dev/null 2>&1; then
+            HEALTHY=1
+            break
+        fi
+        echo -ne "."
+    done
+    echo -e "${C_RESET}"
+
+    if [ "$HEALTHY" -eq 1 ]; then
+        echo -e "${C_EMERALD}${C_BOLD}✓ SerQ HUD Online and Ready!${C_RESET}"
+        echo -e "  Status:  ${C_EMERALD}HEALTHY${C_RESET}"
+        echo -e "  PID:     ${C_BOLD}$PID${C_RESET}"
+        echo -e "  HUD URL: ${C_CYAN}${C_BOLD}$URL/${C_RESET}"
+        echo -e "  Logs:    ${C_GRAY}$LOG_FILE${C_RESET}"
+        echo ""
+        echo -e "${C_GRAY}Tip: Run ${C_BOLD}./serq status${C_RESET}${C_GRAY} for live telemetry or ${C_BOLD}./serq logs${C_RESET}${C_GRAY} to stream logs.${C_RESET}"
+    else
+        echo -e "${C_RED}${C_BOLD}✗ Server started with PID $PID but health-check timed out.${C_RESET}"
+        echo -e "${C_GRAY}Check logs with: ${C_BOLD}cat $LOG_FILE${C_RESET}"
+        return 1
+    fi
+}
+
+cmd_stop() {
+    banner
+    if ! is_running; then
+        echo -e "${C_GRAY}● SerQ server is not running.${C_RESET}"
+        rm -f "$PID_FILE"
+        return 0
+    fi
+
+    PID=$(cat "$PID_FILE")
+    echo -e "${C_GRAY}Stopping SerQ server (PID: $PID)...${C_RESET}"
+    
+    # Graceful SIGTERM
+    kill -15 "$PID" 2>/dev/null || true
+
+    # Wait up to 5 seconds
+    STOPPED=0
+    for i in {1..10}; do
+        if ! kill -0 "$PID" 2>/dev/null; then
+            STOPPED=1
+            break
+        fi
+        sleep 0.5
+    done
+
+    # Force kill if still hanging
+    if [ "$STOPPED" -eq 0 ]; then
+        echo -e "${C_AMBER}Process did not terminate gracefully, sending SIGKILL...${C_RESET}"
+        kill -9 "$PID" 2>/dev/null || true
+    fi
+
+    # Cleanup any orphan uvicorn workers
+    pkill -f "uvicorn api.app:app" 2>/dev/null || true
+    rm -f "$PID_FILE"
+
+    echo -e "${C_EMERALD}✓ SerQ server stopped. Port $PORT is free.${C_RESET}"
+}
+
+cmd_restart() {
+    cmd_stop
+    echo ""
+    sleep 1
+    cmd_start
+}
+
+cmd_status() {
+    banner
+    if is_running; then
+        PID=$(cat "$PID_FILE")
+        echo -e "  Process:   ${C_EMERALD}${C_BOLD}RUNNING${C_RESET} (PID: $PID)"
+        echo -e "  HUD URL:   ${C_CYAN}${C_BOLD}$URL/${C_RESET}"
+
+        # Fetch telemetry via curl
+        STATUS_JSON=$(curl -s "$URL/api/status" 2>/dev/null || echo "{}")
+        HEALTH_JSON=$(curl -s "$URL/health" 2>/dev/null || echo "{}")
+        AUTO_JSON=$(curl -s "$URL/api/auto-trade/status" 2>/dev/null || echo "{}")
+        SCHED_JSON=$(curl -s "$URL/api/scheduler/status" 2>/dev/null || echo "{}")
+
+        python3 -c "
+import json
+
+try:
+    status = json.loads('''$STATUS_JSON''')
+    auto_st = json.loads('''$AUTO_JSON''')
+    sched = json.loads('''$SCHED_JSON''')
+
+    cash = status.get('capital', {}).get('current_cash', 3000.0)
+    pnl = status.get('pnl', {}).get('net_pnl', 0.0)
+    fees = status.get('pnl', {}).get('total_fees', 0.0)
+    lot = status.get('lot_size', 65)
+    kill_sw = status.get('kill_switch', {}).get('is_engaged', False)
+
+    auto_enabled = auto_st.get('is_enabled', False)
+    active_trades = auto_st.get('active_trades', [])
+
+    phase = sched.get('current_phase', 'UNKNOWN')
+    trading_ok = sched.get('is_trading_permitted', False)
+    ist = sched.get('ist_time', '')
+
+    print('\n  ${C_BOLD}Account Telemetry:${C_RESET}')
+    print(f'    Virtual Cash:     \033[38;5;48m₹{cash:,.2f}\033[0m (Floor: ₹2,000.00)')
+    pnl_col = '\033[38;5;48m' if pnl >= 0 else '\033[38;5;197m'
+    print(f'    Net Realized PnL: {pnl_col}₹{pnl:,.2f}\033[0m')
+    print(f'    Friction Fees:    \033[38;5;214m₹{fees:,.2f}\033[0m (STT/GST/SEBI)')
+    print(f'    Lot Size:         {lot} Units (Max: 1 Lot)')
+
+    print(f'\n  ${C_BOLD}Engine State:${C_RESET}')
+    auto_badge = '\033[38;5;48m● ENABLED\033[0m' if auto_enabled else '\033[38;5;214m⏸ PAUSED\033[0m'
+    print(f'    Auto-Pilot:       {auto_badge}')
+    print(f'    Active Positions: {len(active_trades)}')
+    if active_trades:
+        t = active_trades[0]
+        print(f'      └─ {t.get(\"symbol\")} | Entry: ₹{t.get(\"entry_price\")} | LTP: ₹{t.get(\"current_price\")} | State: {t.get(\"state\")}')
+
+    perm_badge = '\033[38;5;48mACTIVE\033[0m' if trading_ok else '\033[38;5;214mSTAND-DOWN\033[0m'
+    print(f'    Session Phase:    {phase} ({perm_badge})')
+    print(f'    IST Clock:        {ist}')
+    ks_badge = '\033[38;5;197mENGAGED\033[0m' if kill_sw else '\033[38;5;48mNORMAL\033[0m'
+    print(f'    Kill Switch:      {ks_badge}')
+except Exception as e:
+    print('    Telemetry parsing error:', e)
+"
+    else
+        echo -e "  Process:   ${C_RED}${C_BOLD}OFFLINE${C_RESET}"
+        echo -e "  Port $PORT:   ${C_GRAY}Free${C_RESET}"
+        echo ""
+        echo -e "${C_GRAY}To start the server, run: ${C_BOLD}./serq start${C_RESET}"
+    fi
+}
+
+cmd_logs() {
+    if [ ! -f "$LOG_FILE" ]; then
+        echo -e "${C_GRAY}No log file found at $LOG_FILE${C_RESET}"
+        return 0
+    fi
+    echo -e "${C_GRAY}Streaming $LOG_FILE (Ctrl+C to exit)...${C_RESET}"
+    tail -n 50 -f "$LOG_FILE"
+}
+
+cmd_test() {
+    banner
+    echo -e "${C_GRAY}Executing test suite (python3 -m pytest tests/ -v)...${C_RESET}\n"
+    python3 -m pytest tests/ -v
+}
+
+cmd_simulate() {
+    banner
+    echo -e "${C_GRAY}Running offline trading day simulation...${C_RESET}\n"
+    python3 simulate_trading_day.py
+}
+
+cmd_square_off() {
+    banner
+    if ! is_running; then
+        echo -e "${C_RED}Server is offline. Start it first with ./serq start${C_RESET}"
+        return 1
+    fi
+    echo -e "${C_AMBER}Triggering emergency square-off for all open positions...${C_RESET}"
+    RESP=$(curl -s -X POST "$URL/api/auto-trade/square-off")
+    echo -e "${C_EMERALD}Response: $RESP${C_RESET}"
+}
+
+cmd_kill() {
+    banner
+    if ! is_running; then
+        echo -e "${C_RED}Server is offline.${C_RESET}"
+        return 1
+    fi
+    echo -e "${C_RED}${C_BOLD}ENGAGING EMERGENCY KILL SWITCH...${C_RESET}"
+    RESP=$(curl -s -X POST "$URL/api/kill-switch" -H "Content-Type: application/json" -d '{"action":"engage","reason":"CLI operator triggered kill"}')
+    echo -e "${C_EMERALD}Response: $RESP${C_RESET}"
+}
+
+cmd_help() {
+    banner
+    echo -e "${C_BOLD}USAGE:${C_RESET}"
+    echo "  ./serq <command>"
+    echo ""
+    echo -e "${C_BOLD}COMMANDS:${C_RESET}"
+    echo -e "  ${C_EMERALD}start${C_RESET}       Start the SerQ HUD server in the background"
+    echo -e "  ${C_EMERALD}stop${C_RESET}        Gracefully stop the server and free port $PORT"
+    echo -e "  ${C_EMERALD}restart${C_RESET}     Restart the server"
+    echo -e "  ${C_EMERALD}status${C_RESET}      Display real-time trading telemetry and account health"
+    echo -e "  ${C_EMERALD}logs${C_RESET}        Follow live application server logs"
+    echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete 56-test regression suite"
+    echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline simulated trading day"
+    echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
+    echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
+    echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
+    echo ""
+}
+
+case "$1" in
+    start)
+        cmd_start
+        ;;
+    stop)
+        cmd_stop
+        ;;
+    restart)
+        cmd_restart
+        ;;
+    status)
+        cmd_status
+        ;;
+    logs)
+        cmd_logs
+        ;;
+    test)
+        cmd_test
+        ;;
+    simulate)
+        cmd_simulate
+        ;;
+    square-off)
+        cmd_square_off
+        ;;
+    kill)
+        cmd_kill
+        ;;
+    help|--help|-h|"")
+        cmd_help
+        ;;
+    *)
+        echo -e "${C_RED}Unknown command: $1${C_RESET}"
+        echo "Run ./serq help for available commands."
+        exit 1
+        ;;
+esac

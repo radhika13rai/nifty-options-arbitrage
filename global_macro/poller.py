@@ -277,8 +277,7 @@ class LiveMacroPoller:
             return
         self.is_running = True
         logger.info(f"Starting LiveMacroPoller (interval: {self.poll_interval_sec}s)")
-        # Perform first poll immediately
-        await self.poll_once()
+        # Launch non-blocking background polling task so server boots immediately
         self._task = asyncio.create_task(self._run_loop())
 
     async def stop(self):
