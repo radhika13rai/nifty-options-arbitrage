@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+import os
+
+html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1607,14 +1609,13 @@
         for (const [sym, q] of Object.entries(data.quotes)) {
           if (sym === 'NIFTY_SPOT') continue;
           const isCall = sym.endsWith('_CE');
-          const color = isCall ? 'var(--emerald)' : '#c084fc';
           html += '<div class="quote-item-row">' +
             '<div>' +
-              '<div style="font-weight:700; font-size:11px; color:' + color + '">' + sym + '</div>' +
+              '<div style="font-weight:700; font-size:11px; color:' + (isCall ? 'var(--emerald)' : '#c084fc') + '">' + sym + '</div>' +
               '<div style="font-size:9px; color:var(--text-muted);">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + '</div>' +
             '</div>' +
             '<div style="display:flex; align-items:center; gap:8px;">' +
-              '<span style="font-family:monospace; font-weight:800; font-size:12px;">₹' + q.mid.toFixed(2) + '</span>' +
+              '<span style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:12px;">₹' + q.mid.toFixed(2) + '</span>' +
               '<button class="btn-quick-buy" onclick="event.stopPropagation(); orderOption(\'' + sym + '\', \'BUY\', ' + q.ask + ')">BUY 65</button>' +
             '</div>' +
           '</div>';
@@ -1703,9 +1704,7 @@
       const resp = await fetch('/api/global-macro/poll', { method: 'POST' });
       const data = await resp.json();
       if (data.status === 'SUCCESS') {
-        alert("Synced Live World Cues!
-Brent: $" + data.brent + " | DXY: " + data.dxy + "
-Est Gap: " + data.gap_pts + " pts");
+        alert("Synced Live World Cues!\nBrent: $" + data.brent + " | DXY: " + data.dxy + "\nEst Gap: " + data.gap_pts + " pts");
       }
     }
 
@@ -1742,3 +1741,9 @@ Est Gap: " + data.gap_pts + " pts");
   </script>
 </body>
 </html>
+"""
+
+target_path = '/root/nifty-options-arbitrage/dashboard/index.html'
+with open(target_path, 'w', encoding='utf-8') as f:
+    f.write(html_content)
+print(f"Written {len(html_content)} bytes cleanly to {target_path}")
