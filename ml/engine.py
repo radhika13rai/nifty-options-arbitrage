@@ -76,6 +76,32 @@ class AdaptiveMLStrategy(BaseStrategy):
         if not should_trade:
             return []
 
+        # Check Global Macro & News Intelligence Fusion
+        from global_macro.multimodal_fusion import multimodal_fusion
+        from global_macro.indicators import macro_engine
+        from global_macro.news_feed import news_feed
+
+        macro_snap = macro_engine.get_snapshot()
+        news_embs = news_feed.get_recent_embeddings()
+        global_res = multimodal_fusion.fuse(macro_snap, news_embs)
+
+        # 1. Macro Bias Directional Filter:
+        # Suppress buying Call options when global tensions are high and macro is bearish
+        if global_res.global_bias in ["STRONG_BEARISH", "MODERATE_BEARISH"] and option_type == "CE":
+            return []
+        
+        # Suppress buying Put options when global macro is strongly bullish
+        if global_res.global_bias in ["STRONG_BULLISH", "MODERATE_BULLISH"] and option_type == "PE":
+            return []
+
+        # Boost confidence when local breakout is confirmed by global macro alignment
+        if global_res.recommended_options_posture == "FAVOR_PUT_BREAKOUT" and option_type == "PE":
+            confidence = min(0.98, round(confidence + 0.12, 2))
+            reason += f" | Global Alignment: {global_res.synthesis_reason}"
+        elif global_res.recommended_options_posture == "FAVOR_CALL_BREAKOUT" and option_type == "CE":
+            confidence = min(0.98, round(confidence + 0.12, 2))
+            reason += f" | Global Alignment: {global_res.synthesis_reason}"
+
         # Calculate strict ₹150 risk cap
         # Friction ~ ₹45
         # Max points loss = (150 - 45) / 65 = ~1.6 points

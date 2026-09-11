@@ -76,3 +76,47 @@ def test_ml_endpoints():
         r_data = retrain.json()
         assert r_data["success"] is True
         assert "epoch" in r_data
+
+
+def test_global_macro_endpoints():
+    """Verify /api/global-macro/status and /api/global-macro/scenario endpoints."""
+    with TestClient(app) as client:
+        # 1. Check status
+        resp = client.get("/api/global-macro/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "macro" in data
+        assert "fusion" in data
+        assert "global_bias" in data["fusion"]
+        assert "geopolitical_fear_index" in data["fusion"]
+        assert "headlines" in data
+
+        # 2. Trigger world scenario simulation
+        sc_resp = client.post(
+            "/api/global-macro/scenario",
+            json={"scenario": "MIDDLE_EAST_WAR_CRISIS"}
+        )
+        assert sc_resp.status_code == 200
+        sc_data = sc_resp.json()
+        assert sc_data["success"] is True
+        assert sc_data["global_bias"] in ["STRONG_BEARISH", "MODERATE_BEARISH"]
+        assert sc_data["geopolitical_fear_index"] >= 0.70
+
+        # 3. Test dataset endpoint
+        ds_resp = client.get("/api/global-macro/dataset")
+        assert ds_resp.status_code == 200
+        ds_data = ds_resp.json()
+        assert ds_data["count"] >= 10
+        assert len(ds_data["samples"]) >= 10
+
+        # 4. Test multimodal weight training endpoint
+        tr_resp = client.post("/api/global-macro/train")
+        assert tr_resp.status_code == 200
+        tr_data = tr_resp.json()
+        assert tr_data["success"] is True
+        assert tr_data["directional_accuracy"] >= 0.75
+        assert len(tr_data["macro_weights"]) == 5
+        assert len(tr_data["news_weights"]) == 8
+
+        # Reset to neutral
+        client.post("/api/global-macro/scenario", json={"scenario": "NEUTRAL"})

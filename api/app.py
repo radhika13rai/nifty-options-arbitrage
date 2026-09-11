@@ -32,6 +32,11 @@ from strategies.box_spread import box_spread_scanner
 from ml.learner import learning_engine
 from ml.engine import adaptive_ml_strategy
 from ml.dataset import ml_repo
+from global_macro.indicators import macro_engine
+from global_macro.news_feed import news_feed
+from global_macro.multimodal_fusion import multimodal_fusion
+from global_macro.dataset import macro_dataset
+from global_macro.trainer import macro_trainer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -311,10 +316,15 @@ async def websocket_stream(websocket: WebSocket):
             ks = kill_switch.get_status()
             open_positions = position_tracker.get_open_positions()
 
-            # 2. Machine Learning Metrics
+            # 3. Machine Learning Metrics
             ml_met = learning_engine.get_metrics()
 
-            # 3. Quotes
+            # 4. Global Macro & News Intelligence Fusion
+            macro_snap = macro_engine.get_snapshot()
+            news_embs = news_feed.get_recent_embeddings()
+            gm_fusion = multimodal_fusion.fuse(macro_snap, news_embs)
+
+            # 5. Quotes
             snaps = orderbook_manager.get_all_snapshots()
             quotes_data = {}
             for sym, s in snaps.items():
@@ -353,6 +363,17 @@ async def websocket_stream(websocket: WebSocket):
                     "win_rate": ml_met.expected_win_rate,
                     "hurdle_inr": ml_met.statutory_hurdle_inr,
                     "rls_steps": ml_met.rls_steps
+                },
+                "global_macro": {
+                    "bias": gm_fusion.global_bias,
+                    "fear_index": gm_fusion.geopolitical_fear_index,
+                    "expected_gap": gm_fusion.expected_nifty_gap_points,
+                    "posture": gm_fusion.recommended_options_posture,
+                    "crude": macro_snap.brent_crude_usd,
+                    "crude_chg": macro_snap.brent_change_pct,
+                    "dxy": macro_snap.dollar_index_dxy,
+                    "gift_nifty_gap": macro_snap.gift_nifty_gap_pts,
+                    "synthesis": gm_fusion.synthesis_reason
                 },
                 "positions": [
                     {
@@ -417,6 +438,107 @@ async def trigger_ml_retrain(request):
     })
 
 
+# --- Global Macro & Geopolitics Endpoints ---
+
+async def get_global_macro_status(request):
+    """Returns real-time global macro indicators, news sentiment, and multimodal fusion."""
+    snap = macro_engine.get_snapshot()
+    embs = news_feed.get_recent_embeddings()
+    fusion = multimodal_fusion.fuse(snap, embs)
+    headlines = news_feed.get_recent_items(limit=8)
+    return JSONResponse({
+        "macro": {
+            "brent_crude_usd": snap.brent_crude_usd,
+            "brent_change_pct": snap.brent_change_pct,
+            "dollar_index_dxy": snap.dollar_index_dxy,
+            "dxy_change_pct": snap.dxy_change_pct,
+            "gift_nifty_points": snap.gift_nifty_points,
+            "gift_nifty_gap_pts": snap.gift_nifty_gap_pts,
+            "us_vix": snap.us_vix,
+            "us_vix_change_pct": snap.us_vix_change_pct,
+            "sp500_change_pct": snap.sp500_change_pct
+        },
+        "fusion": {
+            "global_bias": fusion.global_bias,
+            "geopolitical_fear_index": fusion.geopolitical_fear_index,
+            "expected_nifty_gap_points": fusion.expected_nifty_gap_points,
+            "iv_expansion_probability": fusion.iv_expansion_probability,
+            "recommended_options_posture": fusion.recommended_options_posture,
+            "confidence_score": fusion.confidence_score,
+            "synthesis_reason": fusion.synthesis_reason
+        },
+        "headlines": headlines
+    })
+
+
+async def set_global_scenario(request):
+    """Applies a world event scenario (e.g. MIDDLE_EAST_WAR_CRISIS, GLOBAL_DEESCALATION_RELIEF)."""
+    try:
+        body = await request.json()
+        scenario = body.get("scenario", "NEUTRAL")
+        macro_snap = macro_engine.apply_scenario(scenario)
+        news_embs = news_feed.load_scenario(scenario)
+        fusion = multimodal_fusion.fuse(macro_snap, news_embs)
+        return JSONResponse({
+            "success": True,
+            "scenario": scenario,
+            "global_bias": fusion.global_bias,
+            "geopolitical_fear_index": fusion.geopolitical_fear_index,
+            "recommended_options_posture": fusion.recommended_options_posture,
+            "expected_nifty_gap_points": fusion.expected_nifty_gap_points,
+            "synthesis_reason": fusion.synthesis_reason
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def trigger_macro_train(request):
+    """Triggers supervised training of multimodal macro & news fusion weights."""
+    try:
+        res = macro_trainer.train_on_dataset()
+        return JSONResponse({
+            "success": True,
+            "epoch": res.epoch,
+            "num_samples": res.num_samples,
+            "macro_weights": res.macro_weights,
+            "news_weights": res.news_weights,
+            "train_mse": res.train_mse,
+            "directional_accuracy": res.directional_accuracy,
+            "cross_val_mae": res.cross_val_mae,
+            "duration_ms": res.training_duration_ms,
+            "message": f"Multimodal training complete: {res.directional_accuracy*100:.1f}% directional accuracy on {res.num_samples} historical shock events."
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def get_macro_dataset(request):
+    """Returns historical global macro & news samples."""
+    samples = macro_dataset.get_all_samples()
+    if not samples:
+        macro_dataset.seed_historical_events()
+        samples = macro_dataset.get_all_samples()
+    return JSONResponse({
+        "count": len(samples),
+        "samples": [
+            {
+                "id": s.sample_id,
+                "event": s.event_name,
+                "headline": s.headline,
+                "brent": s.brent_crude,
+                "brent_chg": s.brent_change_pct,
+                "dxy": s.dollar_index_dxy,
+                "gift_gap": s.gift_nifty_gap_pts,
+                "actual_gap": s.actual_nifty_open_gap,
+                "direction": s.actual_direction,
+                "best_side": s.best_option_side,
+                "net_pnl": s.net_pnl_1lot
+            }
+            for s in samples
+        ]
+    })
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -442,6 +564,10 @@ routes = [
     Route("/api/arbitrage/opportunities", get_arbitrage_opportunities, methods=["GET"]),
     Route("/api/ml/status", get_ml_status, methods=["GET"]),
     Route("/api/ml/retrain", trigger_ml_retrain, methods=["POST"]),
+    Route("/api/global-macro/status", get_global_macro_status, methods=["GET"]),
+    Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
+    Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),
+    Route("/api/global-macro/dataset", get_macro_dataset, methods=["GET"]),
     Route("/api/kill-switch", trigger_kill_switch, methods=["POST"]),
     Route("/api/paper/reset", reset_paper_account, methods=["POST"]),
     Route("/api/paper/order", place_paper_order, methods=["POST"]),
