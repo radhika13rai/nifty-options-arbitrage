@@ -50,6 +50,10 @@ class PnLManager:
         self.peak_capital = capital
         self.total_friction = 0.0
 
+    def reset(self, capital: float = config.initial_capital_inr) -> None:
+        """Alias for reset_balance."""
+        self.reset_balance(capital)
+
     def generate_report(self) -> PortfolioPnLReport:
         open_positions = position_tracker.get_open_positions()
         all_positions = position_tracker.get_all_positions()

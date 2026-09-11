@@ -138,6 +138,42 @@ class DatabaseManager:
             (trade_id, order_id, symbol, side, price, quantity, turnover, brokerage, stt, exchange_charges, gst, stamp_duty, sebi_charges, total_costs, net_cash_flow, time.time())
         )
 
+    async def record_daily_pnl(
+        self,
+        date_str: str,
+        starting_cash: float,
+        ending_cash: float,
+        gross_pnl: float,
+        total_friction: float,
+        net_pnl: float,
+        trades_count: int,
+        max_drawdown: float
+    ) -> None:
+        query = """
+            INSERT INTO daily_pnl (date, starting_cash, ending_cash, gross_pnl, total_friction, net_pnl, trades_count, max_drawdown, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                starting_cash = excluded.starting_cash,
+                ending_cash = excluded.ending_cash,
+                gross_pnl = excluded.gross_pnl,
+                total_friction = excluded.total_friction,
+                net_pnl = excluded.net_pnl,
+                trades_count = excluded.trades_count,
+                max_drawdown = excluded.max_drawdown,
+                updated_at = excluded.updated_at
+        """
+        await self.async_write(
+            query,
+            (date_str, starting_cash, ending_cash, gross_pnl, total_friction, net_pnl, trades_count, max_drawdown, time.time())
+        )
+
+    async def checkpoint_wal(self) -> None:
+        """Flushes SQLite WAL to database file to maintain zero-fragmentation during soak tests."""
+        await self.async_write("PRAGMA wal_checkpoint(PASSIVE);")
+
+    async def get_daily_pnl_records(self, limit: int = 50) -> list[dict]:
+        return await self.async_query("SELECT * FROM daily_pnl ORDER BY date DESC LIMIT ?", (limit,))
+
     async def get_recent_orders(self, limit: int = 50) -> list[dict]:
         return await self.async_query("SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))
 

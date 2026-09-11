@@ -639,6 +639,48 @@ async def get_slippage_status(request):
     return JSONResponse(slippage_model.get_telemetry())
 
 
+_soak_task = None
+
+
+async def get_soak_status(request):
+    """Returns continuous paper soak runner telemetry and health scorecard."""
+    from simulation.soak_runner import soak_runner
+    return JSONResponse(soak_runner.get_metrics_dict())
+
+
+async def start_soak_runner(request):
+    """Launches continuous paper soak runner in background task."""
+    global _soak_task
+    from simulation.soak_runner import soak_runner
+    if _soak_task and not _soak_task.done():
+        return JSONResponse({"status": "ALREADY_RUNNING", "message": "Soak runner is already executing."})
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    days = int(body.get("days", 30))
+    interval = float(body.get("interval_sec", 0.05))
+
+    _soak_task = asyncio.create_task(soak_runner.run(max_days=days, interval_sec=interval))
+    return JSONResponse({"status": "STARTED", "target_days": days, "interval_sec": interval})
+
+
+async def stop_soak_runner(request):
+    """Stops background paper soak runner."""
+    from simulation.soak_runner import soak_runner
+    soak_runner.stop()
+    return JSONResponse({"status": "STOP_REQUESTED"})
+
+
+async def reset_soak_runner(request):
+    """Resets paper soak runner state and metrics."""
+    from simulation.soak_runner import soak_runner
+    soak_runner.reset()
+    return JSONResponse({"status": "RESET_COMPLETE", "metrics": soak_runner.get_metrics_dict()})
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -667,6 +709,10 @@ routes = [
     Route("/api/ml/drift", get_drift_status, methods=["GET"]),
     Route("/api/market-stream/status", get_stream_status, methods=["GET"]),
     Route("/api/costs/slippage", get_slippage_status, methods=["GET"]),
+    Route("/api/soak/status", get_soak_status, methods=["GET"]),
+    Route("/api/soak/start", start_soak_runner, methods=["POST"]),
+    Route("/api/soak/stop", stop_soak_runner, methods=["POST"]),
+    Route("/api/soak/reset", reset_soak_runner, methods=["POST"]),
     Route("/api/global-macro/status", get_global_macro_status, methods=["GET"]),
     Route("/api/global-macro/scenario", set_global_scenario, methods=["POST"]),
     Route("/api/global-macro/train", trigger_macro_train, methods=["POST"]),

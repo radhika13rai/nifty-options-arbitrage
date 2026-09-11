@@ -314,10 +314,50 @@ print(f'    Exhaustion Penalty: \033[38;5;48m1.50 pts\033[0m on book depletion')
 "
 }
 
+cmd_soak() {
+    banner
+    DAYS=${2:-20}
+    INTERVAL=${3:-0.05}
+    python3 -c "
+import asyncio
+from simulation.soak_runner import soak_runner
+
+async def run():
+    print(f'\033[1m  AUTOMATED CONTINUOUS PAPER SOAK RUNNER (PAPER V2)\033[0m')
+    print(f'  Target: \033[38;5;51m$DAYS trading days\033[0m | Speed: \033[38;5;51m$INTERVAL s/day\033[0m | Capital: \033[38;5;48m₹3,000\033[0m')
+    print('  --------------------------------------------------')
+
+    def on_day(res, met):
+        icon = '✓' if res.net_pnl >= 0 else '✗'
+        color = '\033[38;5;48m' if res.net_pnl >= 0 else '\033[38;5;203m'
+        print(f'  Day {met.days_completed:02d}/{met.target_days:02d} | {color}{icon}\033[0m {res.date_str} [{res.regime[:10]:10s}] PnL: {color}₹{res.net_pnl:+7.2f}\033[0m | Cash: ₹{res.ending_cash:.2f} | WR: {met.win_rate_pct:4.1f}%')
+
+    soak_runner.register_callback(on_day)
+    metrics = await soak_runner.run(max_days=$DAYS, interval_sec=$INTERVAL)
+    print('  --------------------------------------------------')
+    print('\033[1m  SOAK TEST EXECUTION SCORECARD:\033[0m')
+    print(f'    Status:             \033[38;5;48m{metrics.status}\033[0m')
+    print(f'    Days Completed:     {metrics.days_completed} / {metrics.target_days}')
+    print(f'    Ending Capital:     \033[38;5;48m₹{metrics.current_capital:.2f}\033[0m (Floor: ₹2,000.00)')
+    print(f'    Cumulative Net PnL: \033[38;5;48m₹{metrics.cumulative_net_pnl:+.2f}\033[0m ({metrics.net_return_pct:+.2f}%)')
+    print(f'    Statutory Friction: ₹{metrics.cumulative_friction:.2f}')
+    print(f'    Total Trades:       {metrics.total_trades} (W: {metrics.winning_trades}, L: {metrics.losing_trades}, BE: {metrics.breakeven_trades})')
+    print(f'    Win Rate:           \033[38;5;51m{metrics.win_rate_pct:.1f}%\033[0m')
+    print(f'    Peak Capital:       ₹{metrics.peak_capital:.2f}')
+    print(f'    Max Drawdown:       {metrics.max_drawdown_pct:.2f}%')
+    print(f'    Drift Interventions:{metrics.drift_rollbacks_count}')
+    print(f'    SQLite Checkpoints: {metrics.checkpoints_executed} (DB Size: {metrics.sqlite_db_size_kb:.1f} KB)')
+    print(f'    Capital Floor OK:   \033[38;5;48m{metrics.capital_floor_preserved}\033[0m')
+    print(f'    Elapsed Time:       {metrics.elapsed_seconds:.2f} seconds')
+
+asyncio.run(run())
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
-    echo "  ./serq <command>"
+    echo "  ./serq <command> [options]"
     echo ""
     echo -e "${C_BOLD}COMMANDS:${C_RESET}"
     echo -e "  ${C_EMERALD}start${C_RESET}       Start the SerQ HUD server in the background"
@@ -328,6 +368,7 @@ cmd_help() {
     echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete test suite"
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
+    echo -e "  ${C_EMERALD}soak${C_RESET}        Run automated continuous paper soak test [days] [interval]"
     echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
     echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
     echo -e "  ${C_EMERALD}slippage${C_RESET}    Display orderbook queue priority & slippage telemetry"
@@ -361,6 +402,9 @@ case "$1" in
         ;;
     backtest)
         cmd_backtest
+        ;;
+    soak)
+        cmd_soak "$@"
         ;;
     drift)
         cmd_drift
