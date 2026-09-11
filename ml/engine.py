@@ -14,6 +14,9 @@ from strategies.base import BaseStrategy, TradingSignal
 from ml.features import feature_extractor
 from ml.learner import learning_engine
 from costs.transaction_costs import cost_engine
+from global_macro.multimodal_fusion import multimodal_fusion
+from global_macro.indicators import macro_engine
+from global_macro.news_feed import news_feed
 
 
 class AdaptiveMLStrategy(BaseStrategy):
@@ -77,10 +80,6 @@ class AdaptiveMLStrategy(BaseStrategy):
             return []
 
         # Check Global Macro & News Intelligence Fusion
-        from global_macro.multimodal_fusion import multimodal_fusion
-        from global_macro.indicators import macro_engine
-        from global_macro.news_feed import news_feed
-
         macro_snap = macro_engine.get_snapshot()
         news_embs = news_feed.get_recent_embeddings()
         global_res = multimodal_fusion.fuse(macro_snap, news_embs)
