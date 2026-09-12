@@ -85,141 +85,239 @@ class SoakMetrics:
 
 class ProceduralScenarioGenerator:
     """
-    Generates procedurally varied, macroeconomically consistent trading days
+    Generates genuinely stochastic, macroeconomically consistent trading days
     grounded in institutional Indian option market dynamics.
+    Eliminates hardcoded outcomes: price paths are generated via a regime-dependent
+    stochastic process where wins, losses, breakeven ratchets, and stand-downs
+    are emergent outcomes of the market path interacting with the execution engine.
     """
 
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: Optional[int] = 42):
         self._rng = random.Random(seed)
         self._day_counter = 0
 
+    def _generate_stochastic_trajectory(
+        self,
+        base_prem: float,
+        regime: MarketRegime,
+        archetype: str,
+        num_steps: int = 24
+    ) -> list[tuple[float, str]]:
+        """
+        Generates a realistic intraday price trajectory using stochastic drift + diffusion.
+        
+        Archetypes:
+        - "SUSTAINED_EXPANSION": Strong directional drift towards 1:2 or 1:3 profit target.
+        - "FAILED_BREAKOUT": Initial move that reverses sharply and breaches stop-loss (-2.30 pts).
+        - "WHIPSAW_RATCHET": Initial run (+1.50 to +2.50 pts) that triggers breakeven/profit lock, then pulls back.
+        - "SIDEWAYS_CHOP": Low volatility theta erosion with minor mean-reverting oscillation.
+        """
+        trajectory: list[tuple[float, str]] = []
+        current_p = base_prem
+        
+        base_hour = 9
+        base_minute = 18
+        trajectory.append((round(current_p, 2), f"{base_hour:02d}:{base_minute:02d} IST - Market Entry LTP"))
+
+        for step in range(1, num_steps):
+            total_minutes = base_minute + (step * 5)
+            h = base_hour + (total_minutes // 60)
+            m = total_minutes % 60
+            time_str = f"{h:02d}:{m:02d} IST"
+
+            z = self._rng.gauss(0.0, 1.0)
+
+            if archetype == "SUSTAINED_EXPANSION":
+                # Upward drift with noise: ~0.35 pts/step
+                drift = self._rng.uniform(0.20, 0.45)
+                vol = self._rng.uniform(0.15, 0.35)
+                delta = drift + (vol * z)
+                current_p = max(0.05, current_p + delta)
+                label = f"{time_str} - Momentum continuation (+{current_p - base_prem:+.2f} pts)"
+
+            elif archetype == "FAILED_BREAKOUT":
+                # Initial 1-2 steps slight bounce (+0.20 to +0.50), then sharp reversal downwards
+                if step <= 2:
+                    drift = self._rng.uniform(0.10, 0.25)
+                    vol = 0.08
+                else:
+                    drift = self._rng.uniform(-0.50, -0.25)
+                    vol = self._rng.uniform(0.15, 0.30)
+                delta = drift + (vol * z)
+                current_p = max(0.05, current_p + delta)
+                label = f"{time_str} - Reversal pressure ({current_p - base_prem:+.2f} pts)"
+
+            elif archetype == "WHIPSAW_RATCHET":
+                # Surges up +1.60 to +2.40 pts in first 3-4 steps (locking breakeven), then collapses
+                if step <= 3:
+                    drift = self._rng.uniform(0.45, 0.70)
+                    vol = 0.12
+                else:
+                    drift = self._rng.uniform(-0.60, -0.35)
+                    vol = self._rng.uniform(0.20, 0.35)
+                delta = drift + (vol * z)
+                current_p = max(0.05, current_p + delta)
+                label = f"{time_str} - Volatility whipsaw ({current_p - base_prem:+.2f} pts)"
+
+            else:  # "SIDEWAYS_CHOP"
+                theta_decay = -0.04
+                mean_reversion = -0.15 * (current_p - base_prem)
+                vol = self._rng.uniform(0.10, 0.22)
+                delta = theta_decay + mean_reversion + (vol * z)
+                current_p = max(0.05, current_p + delta)
+                label = f"{time_str} - Sideways drift ({current_p - base_prem:+.2f} pts)"
+
+            stop_level = round(max(0.05, base_prem - 2.20), 2)
+            target_level = round(base_prem + 6.90, 2)
+
+            if current_p <= stop_level:
+                trajectory.append((stop_level, f"{time_str} - Stop-Loss Triggered at ₹{stop_level:.2f} (-2.30 pts)"))
+                break
+            elif current_p >= target_level:
+                trajectory.append((target_level, f"{time_str} - Target 1:3 Cleared at ₹{target_level:.2f} (+6.90 pts)"))
+                break
+            else:
+                trajectory.append((round(current_p, 2), label))
+
+        return trajectory
+
     def next_scenario(self, day_number: int, reference_scenarios: list[DayScenarioConfig]) -> DayScenarioConfig:
         """
-        Generates next scenario, blending reference templates with stochastic perturbations.
+        Generates a stochastic scenario where the regime, entry features,
+        and intraday price path are sampled from random distributions.
         """
-        # Pick regime template in rotation with stochastic variation
-        regimes: list[MarketRegime] = [
+        # 1. Stochastic Regime Selection
+        regimes_pool: list[MarketRegime] = [
             "TRENDING_BULL",
-            "HIGH_VOL_SHOCK",
             "TRENDING_BEAR",
             "CHOPPY_CONSOLIDATION",
-            "CHOPPY_CONSOLIDATION",
-            "TRENDING_BULL",
-            "TRENDING_BEAR"
+            "HIGH_VOL_SHOCK"
         ]
-        chosen_regime = regimes[day_number % len(regimes)]
+        # Realistic Indian derivatives regime weights: ~38% chop, ~28% bull, ~22% bear, ~12% shock
+        regime_weights = [0.28, 0.22, 0.38, 0.12]
+        chosen_regime = self._rng.choices(regimes_pool, weights=regime_weights)[0]
+
         date_str = f"2026-10-{(day_number % 28) + 1:02d}"
 
-        # 1. TRENDING BULL
+        # 2. Strike & Option Selection within Capital Boundaries (<= ₹38.00)
+        base_prem = round(self._rng.uniform(23.0, 31.0), 2)
+        strike_offset = (self._rng.randint(0, 8) * 50)
+
         if chosen_regime == "TRENDING_BULL":
-            base_prem = round(self._rng.uniform(24.0, 32.0), 2)
-            strike = 24600 + (day_number * 50) % 600
-            return DayScenarioConfig(
-                day_number=day_number,
-                date_str=date_str,
-                regime="TRENDING_BULL",
-                title=f"Bull Momentum Breakout (Day {day_number})",
-                headline=f"FII Inflows & Robust Domestic PMI Propel NIFTY Above {strike-100}",
-                brent_crude=round(self._rng.uniform(78.0, 84.0), 2),
-                brent_change_pct=round(self._rng.uniform(-1.8, -0.2), 2),
-                dollar_index_dxy=round(self._rng.uniform(102.5, 104.0), 2),
-                gift_nifty_gap_pts=round(self._rng.uniform(45.0, 95.0), 1),
-                fear_index=round(self._rng.uniform(0.18, 0.32), 2),
-                symbol=f"NIFTY_2026-10-29_{strike}_CE",
-                option_type="CE",
-                base_price=base_prem,
-                features=[0.68, 0.45, 0.02, 0.38, 0.09, 0.15, 0.22, 0.48],
-                should_signal=True,
-                price_trajectory=[
-                    (round(base_prem + 0.30, 2), "09:18 IST - Morning Call Breakout Entry"),
-                    (round(base_prem + 1.80, 2), "09:30 IST - Move +1.80 pts -> Breakeven Locked"),
-                    (round(base_prem + 3.40, 2), "09:55 IST - Move +3.40 pts -> Profit Lock Ratchet"),
-                    (round(base_prem + 5.00, 2), "10:20 IST - Move +5.00 pts -> 1:2 R:R Locked"),
-                    (round(base_prem + 7.10, 2), "10:45 IST - 1:3 R:R Target Reached (+6.90 pts) -> Auto Exit")
-                ]
-            )
+            option_type = "CE"
+            strike = 24600 + strike_offset
+            symbol = f"NIFTY_2026-10-29_{strike}_CE"
+            
+            # Stochastic archetype: 45% sustained trend, 35% false breakout / trap, 20% whipsaw ratchet
+            archetype = self._rng.choices(
+                ["SUSTAINED_EXPANSION", "FAILED_BREAKOUT", "WHIPSAW_RATCHET"],
+                weights=[0.45, 0.35, 0.20]
+            )[0]
+            should_signal = True
+            
+            features = [
+                round(self._rng.uniform(0.50, 0.85), 2),
+                round(self._rng.uniform(0.30, 0.60), 2),
+                round(self._rng.uniform(0.01, 0.03), 4),
+                round(self._rng.uniform(0.20, 0.50), 2),
+                round(self._rng.uniform(0.05, 0.15), 4),
+                round(self._rng.uniform(0.10, 0.25), 2),
+                round(self._rng.uniform(0.15, 0.30), 2),
+                round(self._rng.uniform(0.35, 0.60), 2)
+            ]
+            brent = round(self._rng.uniform(77.0, 83.0), 2)
+            brent_chg = round(self._rng.uniform(-2.0, 0.2), 2)
+            dxy = round(self._rng.uniform(102.0, 103.8), 2)
+            gap = round(self._rng.uniform(30.0, 85.0), 1)
+            fear = round(self._rng.uniform(0.18, 0.34), 2)
+            headline = f"FII Buying & Domestic Growth Momentum Support {strike} CE Breakout"
+            title = f"Bull Momentum Scenario (Day {day_number}, {archetype})"
 
-        # 2. BEAR / CRUDE SHOCK
         elif chosen_regime in ("HIGH_VOL_SHOCK", "TRENDING_BEAR"):
-            base_prem = round(self._rng.uniform(25.0, 33.0), 2)
-            strike = 24400 - (day_number * 50) % 500
-            crude = round(self._rng.uniform(94.0, 103.0), 2)
-            return DayScenarioConfig(
-                day_number=day_number,
-                date_str=date_str,
-                regime=chosen_regime,
-                title=f"Geopolitical Shock & Put Acceleration (Day {day_number})",
-                headline=f"Crude Surges to ${crude:.2f}; Inflationary Pressures Trigger Broad Risk-Off",
-                brent_crude=crude,
-                brent_change_pct=round(self._rng.uniform(2.5, 6.0), 2),
-                dollar_index_dxy=round(self._rng.uniform(105.0, 107.0), 2),
-                gift_nifty_gap_pts=round(self._rng.uniform(-140.0, -60.0), 1),
-                fear_index=round(self._rng.uniform(0.70, 0.90), 2),
-                symbol=f"NIFTY_2026-10-29_{strike}_PE",
-                option_type="PE",
-                base_price=base_prem,
-                features=[-0.75, -0.55, 0.03, -0.45, -0.12, 0.25, 0.42, 0.70],
-                should_signal=True,
-                price_trajectory=[
-                    (round(base_prem + 0.40, 2), "09:18 IST - Put Momentum Signal Executed"),
-                    (round(base_prem + 1.80, 2), "09:28 IST - Breakeven Ratchet Engaged"),
-                    (round(base_prem + 3.50, 2), "09:50 IST - Profit Lock Ratchet Engaged"),
-                    (round(base_prem + 7.20, 2), "10:25 IST - 1:3 Target (+6.90 pts) Cleared -> Auto Exit")
-                ]
-            )
+            option_type = "PE"
+            strike = 24400 - strike_offset
+            symbol = f"NIFTY_2026-10-29_{strike}_PE"
 
-        # 3. CHOPPY CONSOLIDATION (Theta Trap Defense)
-        else:
-            base_prem = round(self._rng.uniform(22.0, 28.0), 2)
+            # Stochastic archetype: 45% sustained put rally, 35% bear trap / squeeze, 20% whipsaw ratchet
+            archetype = self._rng.choices(
+                ["SUSTAINED_EXPANSION", "FAILED_BREAKOUT", "WHIPSAW_RATCHET"],
+                weights=[0.45, 0.35, 0.20]
+            )[0]
+            should_signal = True
+
+            features = [
+                round(self._rng.uniform(-0.85, -0.50), 2),
+                round(self._rng.uniform(-0.60, -0.30), 2),
+                round(self._rng.uniform(0.015, 0.035), 4),
+                round(self._rng.uniform(-0.50, -0.20), 2),
+                round(self._rng.uniform(-0.15, -0.05), 4),
+                round(self._rng.uniform(0.20, 0.40), 2),
+                round(self._rng.uniform(0.35, 0.55), 2),
+                round(self._rng.uniform(0.50, 0.85), 2)
+            ]
+            brent = round(self._rng.uniform(88.0, 102.0), 2)
+            brent_chg = round(self._rng.uniform(1.8, 5.5), 2)
+            dxy = round(self._rng.uniform(104.5, 107.2), 2)
+            gap = round(self._rng.uniform(-130.0, -45.0), 1)
+            fear = round(self._rng.uniform(0.65, 0.90), 2)
+            headline = f"Geopolitical Tension & Crude Surge Exert Downside Pressure on NIFTY"
+            title = f"Bear Shock Scenario (Day {day_number}, {archetype})"
+
+        else:  # CHOPPY_CONSOLIDATION
+            option_type = self._rng.choice(["CE", "PE"])
             strike = 24500
-            # 80% of chop days stand down, 20% test exploratory loss guard
-            is_false_breakout_test = (day_number % 9 == 0)
-            if is_false_breakout_test:
-                return DayScenarioConfig(
-                    day_number=day_number,
-                    date_str=date_str,
-                    regime="CHOPPY_CONSOLIDATION",
-                    title=f"False Breakout Probe & Stop-Loss Test (Day {day_number})",
-                    headline="Morning Attempt Fails at Resistance; Micro-Capital Guardrails Tested",
-                    brent_crude=83.0,
-                    brent_change_pct=0.5,
-                    dollar_index_dxy=103.8,
-                    gift_nifty_gap_pts=10.0,
-                    fear_index=0.35,
-                    symbol=f"NIFTY_2026-10-29_{strike}_CE",
-                    option_type="CE",
-                    base_price=base_prem,
-                    features=[0.40, 0.18, 0.014, 0.12, 0.0007, 0.09, 0.16, 0.33],
-                    should_signal=True,
-                    price_trajectory=[
-                        (round(base_prem + 0.20, 2), "09:18 IST - Exploratory Signal Dispatched"),
-                        (round(base_prem - 0.50, 2), "09:24 IST - Breakout Fails, Spot Reverses"),
-                        (round(base_prem - 2.10, 2), "09:35 IST - Price Drops -> Stop Limit Respected")
-                    ]
-                )
+            symbol = f"NIFTY_2026-10-29_{strike}_{option_type}"
+
+            # In chop: ~65% stand down (disciplined avoidance), ~35% false breakout attempt
+            take_trade = self._rng.random() < 0.35
+            should_signal = take_trade
+
+            if take_trade:
+                archetype = self._rng.choices(["FAILED_BREAKOUT", "SIDEWAYS_CHOP"], weights=[0.70, 0.30])[0]
+                headline = "Intraday Consolidation Tests Support; False Breakout Probe Attempted"
+                title = f"Chop False Breakout Probe (Day {day_number})"
+                features = [
+                    round(self._rng.uniform(0.35, 0.45), 2),
+                    round(self._rng.uniform(0.12, 0.22), 2),
+                    round(self._rng.uniform(0.012, 0.025), 4),
+                    round(self._rng.uniform(0.08, 0.16), 2),
+                    0.0005,
+                    0.08,
+                    0.15,
+                    0.30
+                ]
             else:
-                return DayScenarioConfig(
-                    day_number=day_number,
-                    date_str=date_str,
-                    regime="CHOPPY_CONSOLIDATION",
-                    title=f"Choppy Stand-Down Discipline (Day {day_number})",
-                    headline="Index Boxed in Tight 30-Point Range; Autonomous Engine Pauses Churn",
-                    brent_crude=82.4,
-                    brent_change_pct=0.2,
-                    dollar_index_dxy=103.5,
-                    gift_nifty_gap_pts=-4.0,
-                    fear_index=0.30,
-                    symbol=f"NIFTY_2026-10-29_{strike}_PE",
-                    option_type="PE",
-                    base_price=base_prem,
-                    features=[0.02, 0.01, 0.009, 0.01, 0.0001, 0.06, 0.09, 0.15],
-                    should_signal=False,  # AI Stand-Down Discipline
-                    price_trajectory=[
-                        (base_prem, "09:15 IST - Flat Equilibrium"),
-                        (round(base_prem - 0.20, 2), "10:30 IST - Low ATR Chop: Zero Entries Taken"),
-                        (round(base_prem - 0.40, 2), "11:30 IST - Midday Stand-Down Active; Fee Bleed Avoided")
-                    ]
-                )
+                archetype = "SIDEWAYS_CHOP"
+                headline = "Range-Bound Consolidation: AI Standing Down to Guard Against Theta Decay"
+                title = f"Choppy Stand-Down Discipline (Day {day_number})"
+                features = [0.01, 0.01, 0.01, 0.005, 0.0001, 0.05, 0.08, 0.12]
+
+            brent = round(self._rng.uniform(81.0, 85.0), 2)
+            brent_chg = round(self._rng.uniform(-0.5, 0.5), 2)
+            dxy = round(self._rng.uniform(103.0, 104.2), 2)
+            gap = round(self._rng.uniform(-15.0, 15.0), 1)
+            fear = round(self._rng.uniform(0.25, 0.38), 2)
+
+        price_trajectory = self._generate_stochastic_trajectory(base_prem, chosen_regime, archetype)
+
+        return DayScenarioConfig(
+            day_number=day_number,
+            date_str=date_str,
+            regime=chosen_regime,
+            title=title,
+            headline=headline,
+            brent_crude=brent,
+            brent_change_pct=brent_chg,
+            dollar_index_dxy=dxy,
+            gift_nifty_gap_pts=gap,
+            fear_index=fear,
+            symbol=symbol,
+            option_type=option_type,
+            base_price=base_prem,
+            features=features,
+            should_signal=should_signal,
+            price_trajectory=price_trajectory
+        )
 
 
 class PaperSoakRunner:

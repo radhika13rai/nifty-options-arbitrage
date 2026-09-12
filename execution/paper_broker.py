@@ -85,6 +85,8 @@ class PaperBroker(AbstractBrokerClient):
                 ask_depth=[{"price": d.price, "size": d.size} for d in snapshot.asks] if snapshot.asks else None
             )
             simulated_fill_price = slippage_res.simulated_fill_price
+            if request.order_type == "LIMIT" and request.price > 0:
+                simulated_fill_price = min(simulated_fill_price, request.price)
         else:
             slippage_res = slippage_model.calculate_sell_fill(
                 best_bid=snapshot.best_bid,
@@ -92,6 +94,8 @@ class PaperBroker(AbstractBrokerClient):
                 bid_depth=[{"price": d.price, "size": d.size} for d in snapshot.bids] if snapshot.bids else None
             )
             simulated_fill_price = slippage_res.simulated_fill_price
+            if request.order_type == "LIMIT" and request.price > 0:
+                simulated_fill_price = max(simulated_fill_price, request.price)
 
         # 3. Pre-trade Risk Check Gate & Atomic Portfolio Mutation
         rejection_reason = None

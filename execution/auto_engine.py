@@ -280,17 +280,24 @@ class AutoExecutionEngine:
         trade.state = "STATE_4_EXITED"
         trade.exit_reason = reason
 
+        exit_order_type = "LIMIT" if reason.startswith("STOP_TRIGGERED") or reason.startswith("TARGET") else "MARKET"
+        eff_price = exit_price
+        if reason.startswith("STOP_TRIGGERED"):
+            eff_price = max(exit_price, trade.current_stop_price)
+        elif reason.startswith("TARGET"):
+            eff_price = trade.target_price
+
         exit_req = BrokerOrderRequest(
             symbol=trade.symbol,
             side="SELL",
-            order_type="MARKET",
+            order_type=exit_order_type,
             quantity=trade.quantity,
-            price=exit_price,
+            price=eff_price,
             client_order_id=f"EXT_{trade.trade_id[:6]}_{int(time.time()*1000)}_{str(uuid.uuid4())[:4]}"
         )
 
         resp = await paper_broker.place_order(exit_req)
-        actual_fill_price = resp.fill_price if resp and resp.status == "FILLED" else exit_price
+        actual_fill_price = resp.fill_price if resp and resp.status == "FILLED" else eff_price
 
         # Calculate exact fee-adjusted Net P&L
         points_moved = round(actual_fill_price - trade.entry_price, 2)
