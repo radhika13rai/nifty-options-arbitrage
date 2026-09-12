@@ -294,3 +294,87 @@ def test_capital_single_position_lock():
         assert symbol2 not in auto_engine._active_trades
 
     asyncio.run(_run())
+
+
+def test_dispatch_breakout_with_screener():
+    """Verify autonomous entry via strike screener selects compliant contract and executes."""
+    async def _run():
+        resp = await auto_engine.dispatch_breakout_with_screener(
+            spot=24500.0,
+            directional_bias="BULLISH",
+            days_to_expiry=4.0,
+            iv=0.155
+        )
+        assert resp is not None
+        assert resp.status == "FILLED"
+        assert len(auto_engine._active_trades) == 1
+
+        active_trade = list(auto_engine._active_trades.values())[0]
+        assert active_trade.option_type == "CE"
+        assert active_trade.entry_price <= 38.00
+        assert active_trade.quantity == 65
+        assert 0.15 <= abs(active_trade.entry_delta) <= 0.30
+
+    asyncio.run(_run())
+
+
+def test_gamma_acceleration_ratchet():
+    """Verify trailing stop ratchets aggressively when Delta expands past 0.50."""
+    async def _run():
+        symbol = "NIFTY_2026-09-24_24900_CE"
+        trade = ManagedTrade(
+            trade_id="TRD_GAMMA_01",
+            symbol=symbol,
+            option_type="CE",
+            side="BUY",
+            quantity=65,
+            entry_price=25.0,
+            entry_time_ms=time.time() * 1000.0,
+            current_stop_price=22.70,
+            target_price=35.00,
+            state="STATE_0_INCEPTION",
+            highest_price_seen=25.0,
+            features_at_entry=[0.0] * 8,
+            strategy_name="DYNAMIC_GREEK_BREAKOUT",
+            entry_delta=0.22,
+            current_delta=0.22
+        )
+        auto_engine._active_trades[symbol] = trade
+
+        # Huge breakout moves option from 25.0 to 32.0 (+7.0 pts)
+        # Delta expands: 0.22 + (7.0 * 0.045) = 0.535 >= 0.50
+        tick = MarketDataNormalizer.create_synthetic_tick(symbol=symbol, mid_price=32.0)
+        res = await auto_engine.on_tick(tick)
+
+        assert res is not None
+        assert res["gamma_triggered"] is True
+        assert res["current_delta"] >= 0.50
+        assert trade.current_stop_price >= 28.50  # entry 25.0 + 3.50
+
+    asyncio.run(_run())
+
+
+def test_pre_trade_premium_cap_rejection():
+    """Verify signals with premium > ₹38.00 are rejected upfront under micro-capital limits."""
+    async def _run():
+        symbol = "NIFTY_2026-09-24_24500_CE"
+        sig_expensive = TradingSignal(
+            signal_id=f"SIG_EXP_{uuid.uuid4().hex[:6]}",
+            timestamp_ms=time.time() * 1000.0,
+            strategy_name="AdaptiveMLStrategy",
+            symbol=symbol,
+            action="BUY",
+            order_type="MARKET",
+            suggested_price=75.0,  # Violates ₹38.00 cap!
+            quantity=65,
+            confidence=0.90,
+            is_capital_feasible=True,
+            metadata={"option_type": "CE"}
+        )
+
+        resp = await auto_engine.handle_signal(sig_expensive)
+        assert resp is None  # Blocked!
+        assert symbol not in auto_engine._active_trades
+
+    asyncio.run(_run())
+

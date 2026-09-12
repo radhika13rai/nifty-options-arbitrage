@@ -17,6 +17,7 @@ from execution.order_manager import order_manager
 from strategies.base import TradingSignal
 from market_data.normalizer import MarketTick
 from portfolio.positions import position_tracker
+from portfolio.pnl import pnl_manager
 from costs.transaction_costs import cost_engine
 from ml.learner import learning_engine
 from ml.drift_guard import drift_guard
@@ -49,6 +50,14 @@ class ManagedTrade:
     strategy_name: str
     last_update_time_ms: float = field(default_factory=lambda: time.time() * 1000.0)
     exit_reason: Optional[str] = None
+    entry_delta: float = 0.22
+    current_delta: float = 0.22
+    entry_theta_day: float = -12.0
+    current_theta_day: float = -12.0
+    gamma_acceleration_triggered: bool = False
+    strike: Optional[float] = None
+    days_to_expiry: float = 4.0
+    iv: float = 0.155
 
 
 class AutoExecutionEngine:
@@ -88,6 +97,21 @@ class AutoExecutionEngine:
         if not signal.is_capital_feasible or signal.action != "BUY":
             return None
 
+        # Micro-Capital Invariant: Single-leg premium must be <= ₹38.00
+        if signal.suggested_price > 38.00:
+            logger.warning(
+                f"AutoExecutionEngine: Pre-trade rejection: Option price ₹{signal.suggested_price:.2f} > ₹38.00 cap"
+            )
+            return None
+
+        # Cash balance check: 65 units * price <= cash
+        outlay_required = signal.suggested_price * signal.quantity
+        if outlay_required > pnl_manager.cash_balance:
+            logger.warning(
+                f"AutoExecutionEngine: Pre-trade rejection: Outlay ₹{outlay_required:.2f} exceeds cash ₹{pnl_manager.cash_balance:.2f}"
+            )
+            return None
+
         # Capital Invariant: Max 1 lot active trade under ₹3,000 capital
         if len(self._active_trades) >= 1:
             logger.debug("AutoExecutionEngine: Signal ignored - already holding active position")
@@ -110,6 +134,18 @@ class AutoExecutionEngine:
         opt_type = signal.metadata.get("option_type", "CE" if "_CE" in signal.symbol else "PE")
         feats = signal.metadata.get("features", [0.0] * 8)
 
+        # Extract Greeks metadata
+        entry_delta = float(signal.metadata.get("delta", 0.22 if opt_type == "CE" else -0.22))
+        entry_theta = float(signal.metadata.get("theta_day", -12.0))
+        strike_val = signal.metadata.get("strike")
+        if strike_val is None:
+            try:
+                parts = signal.symbol.split("_")
+                if len(parts) >= 4:
+                    strike_val = float(parts[2])
+            except Exception:
+                strike_val = None
+
         # Initial stop: -2.30 points (max risk ₹149.50 <= ₹150 limit)
         initial_stop = round(max(0.05, fill_price - 2.30), 2)
         # 1:3 R:R target: +6.90 points
@@ -128,13 +164,21 @@ class AutoExecutionEngine:
             state="STATE_0_INCEPTION",
             highest_price_seen=fill_price,
             features_at_entry=feats,
-            strategy_name=signal.strategy_name
+            strategy_name=signal.strategy_name,
+            entry_delta=entry_delta,
+            current_delta=entry_delta,
+            entry_theta_day=entry_theta,
+            current_theta_day=entry_theta,
+            strike=strike_val,
+            days_to_expiry=float(signal.metadata.get("days_to_expiry", 4.0)),
+            iv=float(signal.metadata.get("iv", 0.155))
         )
 
         self._active_trades[signal.symbol] = managed_trade
         logger.info(
             f"AutoExecutionEngine: Managed trade started for {signal.symbol}: "
-            f"Entry=₹{fill_price:.2f}, Stop=₹{initial_stop:.2f}, Target=₹{target_price:.2f}"
+            f"Entry=₹{fill_price:.2f}, Stop=₹{initial_stop:.2f}, Target=₹{target_price:.2f}, "
+            f"Initial Delta={entry_delta:+.3f}"
         )
         return resp
 
@@ -153,6 +197,15 @@ class AutoExecutionEngine:
 
         delta_pts = round(current_price - trade.entry_price, 2)
         elapsed_sec = (now_ms - trade.entry_time_ms) / 1000.0
+
+        # Update dynamic Delta estimation via Gamma acceleration
+        if trade.entry_price > 0:
+            sign = 1.0 if trade.option_type == "CE" else -1.0
+            price_expansion = current_price - trade.entry_price
+            trade.current_delta = round(
+                min(0.95, max(0.01, abs(trade.entry_delta) + (price_expansion * 0.045))) * sign,
+                4
+            )
 
         # --- RULE 1: Stop-Loss Breach (Hard stop or ratcheted trailing stop) ---
         if current_price <= trade.current_stop_price:
@@ -194,13 +247,28 @@ class AutoExecutionEngine:
                 trade.current_stop_price = new_stop
                 logger.info(f"AutoExecutionEngine: RATCHET TIER 1 (Breakeven) -> Stop raised to ₹{new_stop:.2f} (RISK-FREE)")
 
+        # --- RULE 5: Gamma Acceleration Ratchet ---
+        # When Delta expands to >= 0.50 (or <= -0.50 for puts), contract accelerates from OTM to ATM convexity.
+        # Lock in at least entry + 3.50 pts (locks +₹175 net).
+        if abs(trade.current_delta) >= 0.50 and not trade.gamma_acceleration_triggered:
+            trade.gamma_acceleration_triggered = True
+            gamma_stop = round(trade.entry_price + 3.50, 2)
+            if gamma_stop > trade.current_stop_price:
+                trade.current_stop_price = gamma_stop
+                logger.info(
+                    f"AutoExecutionEngine: ⚡ GAMMA ACCELERATION RATCHET (Delta {trade.current_delta:+.3f} >= 0.50) "
+                    f"-> Stop raised to ₹{gamma_stop:.2f}"
+                )
+
         return {
             "symbol": trade.symbol,
             "state": trade.state,
             "ltp": current_price,
             "stop": trade.current_stop_price,
             "delta_pts": round(delta_pts, 2),
-            "elapsed_sec": round(elapsed_sec, 1)
+            "elapsed_sec": round(elapsed_sec, 1),
+            "current_delta": trade.current_delta,
+            "gamma_triggered": trade.gamma_acceleration_triggered
         }
 
     async def _exit_trade(self, trade: ManagedTrade, exit_price: float, reason: str) -> dict:
@@ -289,6 +357,78 @@ class AutoExecutionEngine:
             results.append(res)
         return results
 
+    async def dispatch_breakout_with_screener(
+        self,
+        spot: float,
+        directional_bias: Literal["BULLISH", "BEARISH"] = "BULLISH",
+        days_to_expiry: float = 4.0,
+        iv: float = 0.155,
+        confidence: float = 0.80,
+        features: Optional[list[float]] = None
+    ) -> Optional[BrokerOrderResponse]:
+        """
+        Institutional autonomous entry:
+        1. Screens liquid OTM options chain using StrikeScreener under ₹3,000 capital cap.
+        2. Automatically picks highest-scoring strike satisfying 0.15 <= |Δ| <= 0.30 and premium <= ₹38.00.
+        3. Primes synthetic orderbook and dispatches execution signal with attached Greek metadata.
+        """
+        from analytics.strike_screener import strike_screener
+        from market_data.orderbook import orderbook_manager
+        from market_data.normalizer import MarketDataNormalizer
+
+        best_strike = strike_screener.select_best_strike(
+            spot=spot,
+            days_to_expiry=days_to_expiry,
+            iv=iv,
+            directional_bias=directional_bias
+        )
+        if not best_strike:
+            logger.warning(
+                f"AutoExecutionEngine: No eligible strike found for spot={spot}, bias={directional_bias}"
+            )
+            return None
+
+        # Prime orderbook with tight spread around screened price
+        tick = MarketDataNormalizer.create_synthetic_tick(
+            symbol=best_strike.symbol,
+            mid_price=best_strike.market_price,
+            spread=best_strike.spread
+        )
+        orderbook_manager.update_tick(tick)
+
+        # Initial stop: -2.30 pts (₹149.50 max loss <= ₹150 limit)
+        # Target: +6.90 pts (1:3 R:R)
+        entry_price = best_strike.ask
+        stop_price = round(max(0.05, entry_price - 2.30), 2)
+        target_price = round(entry_price + 6.90, 2)
+
+        sig = TradingSignal(
+            signal_id=f"SIG_GREEK_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
+            timestamp_ms=time.time() * 1000.0,
+            strategy_name="DYNAMIC_GREEK_BREAKOUT",
+            symbol=best_strike.symbol,
+            action="BUY",
+            order_type="MARKET",
+            suggested_price=entry_price,
+            quantity=best_strike.lot_size,
+            target_price=target_price,
+            stop_loss_price=stop_price,
+            confidence=confidence,
+            is_capital_feasible=True,
+            metadata={
+                "option_type": best_strike.option_type,
+                "strike": best_strike.strike,
+                "delta": best_strike.greeks.delta,
+                "theta_day": best_strike.greeks.theta_per_day,
+                "quality_score": best_strike.quality_score,
+                "days_to_expiry": days_to_expiry,
+                "iv": iv,
+                "features": features or [0.0] * 8
+            }
+        )
+
+        return await self.handle_signal(sig)
+
     def get_status(self) -> dict:
         """Returns live auto-execution telemetry."""
         trades_info = []
@@ -308,7 +448,10 @@ class AutoExecutionEngine:
                 "target_price": t.target_price,
                 "state": t.state,
                 "delta_pts": delta_pts,
-                "elapsed_sec": round((now_ms - t.entry_time_ms) / 1000.0, 1)
+                "elapsed_sec": round((now_ms - t.entry_time_ms) / 1000.0, 1),
+                "entry_delta": t.entry_delta,
+                "current_delta": t.current_delta,
+                "gamma_ratchet_active": t.gamma_acceleration_triggered
             })
 
         return {

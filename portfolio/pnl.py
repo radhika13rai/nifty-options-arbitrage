@@ -37,6 +37,11 @@ class PnLManager:
         self.peak_capital = initial_capital
         self.total_friction = 0.0
 
+    @property
+    def cash_balance(self) -> float:
+        """Returns available liquid cash balance."""
+        return self.current_cash
+
     def adjust_cash(self, net_cash_flow: float, friction: float) -> None:
         """Called when an order fills."""
         self.current_cash = round(self.current_cash + net_cash_flow, 2)
