@@ -32,35 +32,30 @@ class MarketDataReplayEngine:
         self._init_default_contracts()
 
     def _init_default_contracts(self):
-        """Generates active NIFTY contracts around the base spot with lot size 65."""
+        """Generates active NIFTY contracts around base spot with 10 strikes (covering OTM corridor)."""
         self.contracts = instrument_registry.generate_nifty_option_chain(
             spot_price=self.base_spot,
             expiry="2026-09-24",
-            num_strikes=4
+            num_strikes=10
         )
 
-    def step_spot(self, dt: float = 1.0 / (375.0 * 20.0)) -> float:
+    def step_spot(self) -> float:
         """
-        Advance spot price by dt days using Geometric Brownian Motion with
-        mean-reversion towards base_spot and occasional jump shocks.
+        Advance spot price tick-by-tick with realistic intraday variance.
+        Spot oscillates gently around base_spot with realistic ±0.50 to ±1.50 pt micro-ticks.
         """
-        # Mean-reverting drift pull towards base_spot to maintain realistic intraday bounds
-        reversion_pull = -0.002 * (self.current_spot - self.base_spot)
-        effective_drift = self.drift + reversion_pull
-
-        # Standard normal shock
-        z = self.rng.gauss(0.0, 1.0)
-        sigma = self.volatility
+        # Mean reversion pull towards base_spot to maintain realistic trading corridor
+        reversion = -0.015 * (self.current_spot - self.base_spot)
+        # Micro tick noise: standard tick shock ~0.65 pts
+        tick_shock = self.rng.gauss(0.0, 0.65)
         
-        # 1% chance of a localized breakout jump
-        jump = 0.0
-        if self.rng.random() < 0.01:
-            jump = self.rng.choice([-1, 1]) * self.rng.uniform(5.0, 18.0)
+        # 0.5% chance of an intraday breakout impulse (3.0 - 8.0 pts)
+        impulse = 0.0
+        if self.rng.random() < 0.005:
+            impulse = self.rng.choice([-1, 1]) * self.rng.uniform(3.0, 8.0)
 
-        # GBM step with scaled intraday dt
-        ret = (effective_drift - 0.5 * sigma ** 2) * dt + sigma * math.sqrt(dt) * z
-        self.current_spot = max(20000.0, min(29000.0, self.current_spot * math.exp(ret) + jump))
-        spot_rounded = round(self.current_spot, 2)
+        self.current_spot = round(self.current_spot + reversion + tick_shock + impulse, 2)
+        spot_rounded = self.current_spot
 
         # Dynamically recenter contracts around ATM if spot moves past a strike interval
         current_atm = round(spot_rounded / config.market.strike_interval) * config.market.strike_interval
@@ -70,16 +65,22 @@ class MarketDataReplayEngine:
                 self.contracts = instrument_registry.generate_nifty_option_chain(
                     spot_price=spot_rounded,
                     expiry="2026-09-24",
-                    num_strikes=4
+                    num_strikes=10
                 )
 
         return spot_rounded
 
-    def calculate_bsm_price(self, contract: OptionContract, spot: float, t_years: float = 7.0 / 365.0) -> float:
-        """Black-Scholes analytical approximation for options pricing."""
+    def calculate_bsm_price(self, contract: OptionContract, spot: float, t_years: float = 4.0 / 365.0) -> float:
+        """Calculates skew-aware option price using VolatilitySurface parametric IV."""
         k = contract.strike
         r = config.market.risk_free_rate
-        sigma = self.volatility
+        days = t_years * 365.0
+        
+        try:
+            from analytics.volatility_surface import volatility_surface
+            sigma = volatility_surface.get_implied_volatility(strike=k, spot=spot, days_to_expiry=days)
+        except Exception:
+            sigma = self.volatility
         
         if t_years <= 0.0001:
             return contract.intrinsic_value(spot)
@@ -95,7 +96,7 @@ class MarketDataReplayEngine:
         else:
             price = k * math.exp(-r * t_years) * norm_cdf(-d2) - spot * norm_cdf(-d1)
 
-        # Ensure minimum tick price
+        # Minimum tick price
         return max(0.05, round(price, 2))
 
     def generate_tick_batch(self) -> list[MarketTick]:
