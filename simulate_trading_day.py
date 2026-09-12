@@ -53,48 +53,41 @@ async def main():
     print(f"  • Actions              : {t2.get('actions')}")
     print(f"  • Trading Permitted    : {market_scheduler.is_trading_permitted}")
 
-    # Set up synthetic orderbook for a liquid NIFTY call option under ₹38.00 cap
-    sym = "NIFTY_2026-09-24_24600_CE"
-    tick = MarketDataNormalizer.create_synthetic_tick(symbol=sym, mid_price=28.00, spread=0.20)
-    orderbook_manager.update_tick(tick)
-
-    print(f"\n[Phase 3] INCOMING ML SIGNAL & AUTONOMOUS DISPATCH")
+    print(f"\n[Phase 3] DYNAMIC GREEK STRIKE SCREENER & AUTONOMOUS DISPATCH")
     print("-" * 70)
-    import uuid
-    sig = TradingSignal(
-        signal_id=f"SIG_MORN_BREAKOUT_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
-        timestamp_ms=time.time() * 1000.0,
-        strategy_name="VOLATILITY_BREAKOUT",
-        symbol=sym,
-        action="BUY",
-        order_type="MARKET",
-        suggested_price=28.10,
-        quantity=65,
-        target_price=35.00,     # Entry + 6.90 pts (1:3 R:R)
-        stop_loss_price=25.80,  # Entry - 2.30 pts (Hard ₹150 stop)
-        confidence=0.72,
-        is_capital_feasible=True,
-        metadata={
-            "features": [0.65, 0.40, 0.02, 0.35, 0.08, 0.15, 0.25, 0.50],
-            "option_type": "CALL"
-        }
-    )
+    # Autonomously screen liquid OTM strikes based on pre-market posture
+    bias = "BULLISH"
+    spot_price = 24500.0
+    print(f"  • Posture Input        : {bias} (NIFTY Spot: ₹{spot_price:,.2f})")
+    print(f"  • Capital Allocation   : ₹3,000.00 ceiling (Target premium <= ₹38.00)")
 
-    order_resp = await auto_engine.handle_signal(sig)
-    managed_trade = auto_engine._active_trades.get(sym)
+    order_resp = await auto_engine.dispatch_breakout_with_screener(
+        spot=spot_price,
+        directional_bias=bias,
+        days_to_expiry=4.0,
+        iv=0.155,
+        confidence=0.78
+    )
+    sym = list(auto_engine._active_trades.keys())[0]
+    managed_trade = auto_engine._active_trades[sym]
+    entry = managed_trade.entry_price
+
+    print(f"  • Selected Contract    : {sym}")
+    print(f"  • Outlay Per Lot       : ₹{entry * 65:,.2f} (Liquid Reserve: ₹{3000 - entry * 65:.2f})")
+    print(f"  • Initial Delta (Δ)    : {managed_trade.entry_delta:+.4f} (Target Corridor 0.15 - 0.30)")
+    print(f"  • Initial Theta (Θ)    : {managed_trade.entry_theta_day:+.2f} pts/day")
     print(f"  • Order Status         : {order_resp.status} (ID: {order_resp.order_id})")
-    print(f"  • Active Managed Trade : {managed_trade.trade_id} [{managed_trade.state}]")
-    print(f"  • Hard Stop-Loss Price : ₹{managed_trade.current_stop_price:.2f} (Max Risk: ₹149.50)")
+    print(f"  • Hard Stop-Loss Price : ₹{managed_trade.current_stop_price:.2f} (Max Risk: ₹149.50 <= ₹150 cap)")
     print(f"  • 1:3 R:R Target Price : ₹{managed_trade.target_price:.2f}")
 
-    print("\n[Phase 4] REAL-TIME DYNAMIC TRAILING STOP RATCHET PROGRESSION")
+    print("\n[Phase 4] REAL-TIME DYNAMIC TRAILING STOP & GAMMA RATCHET PROGRESSION")
     print("-" * 70)
-    # Price steps up
+    # Price steps up dynamically
     price_steps = [
-        (29.60, "Move +1.50 pts -> RATCHET TIER 1: BREAKEVEN LOCKED (RISK-FREE)"),
-        (31.30, "Move +3.20 pts -> RATCHET TIER 2: PROFIT LOCK LOCKED (+₹65 NET)"),
-        (32.70, "Move +4.60 pts -> RATCHET TIER 3: 1:2 R:R LOCKED (+₹156 NET)"),
-        (35.00, "Move +6.90 pts -> 1:3 R:R TARGET REACHED -> MARKET EXIT")
+        (entry + 1.50, "Move +1.50 pts -> RATCHET TIER 1: BREAKEVEN LOCKED (RISK-FREE)"),
+        (entry + 3.20, "Move +3.20 pts -> RATCHET TIER 2: PROFIT LOCK LOCKED (+₹65 NET)"),
+        (entry + 4.60, "Move +4.60 pts -> RATCHET TIER 3: 1:2 R:R LOCKED (+₹156 NET)"),
+        (entry + 7.00, "Move +7.00 pts -> 1:3 R:R TARGET REACHED -> MARKET EXIT")
     ]
 
     for price, desc in price_steps:
@@ -103,7 +96,8 @@ async def main():
         res = await auto_engine.on_tick(t_tick)
         if res and "stop" in res:
             print(f"  • LTP ₹{price:.2f} : {desc}")
-            print(f"    --> State: {res.get('state')} | Active Stop: ₹{res.get('stop'):.2f}")
+            gamma_tag = " [⚡ GAMMA RATCHET ACTIVATED]" if res.get("gamma_triggered") else ""
+            print(f"    --> State: {res.get('state')} | Active Stop: ₹{res.get('stop'):.2f} | Current Δ: {res.get('current_delta', 0):+.3f}{gamma_tag}")
         elif res and "exit_price" in res:
             print(f"  • LTP ₹{price:.2f} : {desc}")
             print(f"    --> Trade Closed! Fill: ₹{res.get('exit_price'):.2f} | Points: {res.get('points_moved'):+.2f}")
