@@ -15,8 +15,8 @@ def setup_test_environment():
     """Resets database and kill switch before each test execution."""
     db_manager.init_db()
     if kill_switch.is_engaged:
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
     pnl_manager.reset_balance(config.initial_capital_inr)
     yield
     if kill_switch.is_engaged:
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()

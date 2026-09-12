@@ -16,12 +16,15 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+import os
 
 from config import config
+from api.auth import AuthenticationMiddleware
 from database.db import db_manager
 from market_data.orderbook import orderbook_manager
 from market_data.websocket import market_feed
 from market_data.instruments import instrument_registry
+from ml.features import feature_extractor
 from portfolio.positions import position_tracker
 from portfolio.pnl import pnl_manager
 from risk.kill_switch import kill_switch
@@ -211,9 +214,21 @@ async def get_arbitrage_opportunities(request):
     Evaluates current orderbooks for Put-Call Parity and Box Spreads.
     Explicitly labels whether signals are capital feasible under ₹3,000 capital.
     """
-    opportunities = []
     spot_snap = orderbook_manager.get_snapshot("NIFTY_SPOT")
-    spot_price = spot_snap.mid_price if spot_snap else 24500.0
+    if not spot_snap or spot_snap.mid_price <= 0:
+        return JSONResponse({
+            "status": "NO_MARKET_DATA",
+            "detail": "NIFTY_SPOT market data unavailable; real-time spot price required for arbitrage detection",
+            "timestamp": time.time(),
+            "spot_price": None,
+            "total_detected": 0,
+            "capital_feasible_count": 0,
+            "capital_infeasible_count": 0,
+            "opportunities": []
+        })
+
+    spot_price = spot_snap.mid_price
+    opportunities = []
 
     # 1. Scan Put-Call Parity across active strike pairs
     strikes = [24400, 24450, 24500, 24550, 24600]
@@ -251,6 +266,7 @@ async def get_arbitrage_opportunities(request):
             })
 
     return JSONResponse({
+        "status": "OK",
         "timestamp": time.time(),
         "spot_price": spot_price,
         "total_detected": len(opportunities),
@@ -274,12 +290,14 @@ async def trigger_kill_switch(request):
         await db_manager.record_audit_log("KILL_SWITCH_ENGAGED", "CRITICAL", "API", reason)
         return JSONResponse({"success": True, "status": res.__dict__})
     elif action == "reset":
-        token = data.get("token", "")
-        if token != "CONFIRM_RESET":
-            return JSONResponse({"error": "Invalid reset token. Provide 'CONFIRM_RESET'."}, status_code=400)
-        res = kill_switch.reset("CONFIRM_RESET")
-        await db_manager.record_audit_log("KILL_SWITCH_RESET", "WARNING", "API", "Manual reset by operator")
-        return JSONResponse({"success": True, "status": res.__dict__})
+        token = data.get("token") or data.get("signature") or ""
+        nonce = data.get("nonce", "RESET_AUTHORIZATION")
+        try:
+            res = kill_switch.reset(token, nonce=nonce)
+            await db_manager.record_audit_log("KILL_SWITCH_RESET", "WARNING", "API", "Cryptographic HMAC reset by operator")
+            return JSONResponse({"success": True, "status": res.__dict__})
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=403)
     
     return JSONResponse({"error": "Unknown action"}, status_code=400)
 
@@ -443,17 +461,52 @@ async def get_ml_status(request):
 
 
 async def trigger_ml_retrain(request):
-    """Triggers an online walk-forward adaptation step."""
+    """Triggers an online walk-forward adaptation step using empirical trade and market features."""
     trades = await db_manager.get_recent_trades(limit=25)
-    formatted = [
-        {
-            "features": [0.6, 0.3, 0.01, 0.2, 0.05, 0.1, 0.2, 0.4],
-            "option_type": "CE" if str(t.get("symbol", "")).endswith("_CE") else "PE",
-            "points_moved": 3.0 if t.get("net_cash_flow", 0) > 0 else -1.6,
-            "net_pnl": t.get("net_cash_flow", 0)
-        }
-        for t in trades
-    ]
+    formatted = []
+    
+    for t in trades:
+        sym = str(t.get("symbol", ""))
+        snap = orderbook_manager.get_snapshot(sym)
+        if snap:
+            fv = feature_extractor.extract_features(snap).to_list()
+        else:
+            # Baseline dynamic microstructure vector
+            fv = [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5]
+            
+        qty = int(t.get("quantity", 65))
+        net_cash = float(t.get("net_cash_flow", 0.0))
+        points_moved = round(net_cash / qty, 2) if qty > 0 else 0.0
+
+        formatted.append({
+            "features": fv,
+            "option_type": "CE" if sym.endswith("CE") or "_CE" in sym else "PE",
+            "points_moved": points_moved,
+            "net_pnl": net_cash
+        })
+
+    # If no recorded trades exist, sample from current active orderbook snapshots
+    if not formatted:
+        snapshots = orderbook_manager.get_all_snapshots()
+        for sym, snap in list(snapshots.items())[:10]:
+            fv = feature_extractor.extract_features(snap).to_list()
+            diff = round(snap.micro_price - snap.mid_price, 2)
+            formatted.append({
+                "features": fv,
+                "option_type": "CE" if "CE" in sym else "PE",
+                "points_moved": diff,
+                "net_pnl": round((diff * 65) - 52.02, 2)
+            })
+
+    # Fallback to feature extractor baseline if orderbooks empty
+    if not formatted:
+        formatted = [{
+            "features": [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5],
+            "option_type": "CE",
+            "points_moved": 0.0,
+            "net_pnl": -52.02
+        }]
+
     metrics = learning_engine.run_daily_adaptation_step(formatted)
     return JSONResponse({
         "success": True,
@@ -461,7 +514,8 @@ async def trigger_ml_retrain(request):
         "epoch": metrics.epoch,
         "regime": metrics.regime,
         "confidence": metrics.confidence_score,
-        "rls_steps": metrics.rls_steps
+        "rls_steps": metrics.rls_steps,
+        "samples_trained": len(formatted)
     })
 
 
@@ -915,13 +969,25 @@ routes = [
     Route("/", serve_dashboard, methods=["GET"]),
 ]
 
+allowed_origins_env = os.environ.get("SERQ_ALLOWED_ORIGINS", "")
+if allowed_origins_env:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
 middleware = [
+    Middleware(AuthenticationMiddleware),
     Middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
+        allow_origins=allowed_origins,
+        allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
-    )
+    ),
 ]
 
 from contextlib import asynccontextmanager
@@ -948,5 +1014,6 @@ async def lifespan(app: Starlette):
     logger.info("System shutdown complete.")
 
 
-app = Starlette(debug=True, routes=routes, middleware=middleware, lifespan=lifespan)
+debug_mode = os.environ.get("SERQ_DEBUG", "false").lower() in ("true", "1")
+app = Starlette(debug=debug_mode, routes=routes, middleware=middleware, lifespan=lifespan)
 

@@ -103,6 +103,93 @@ class MarketDataNormalizer:
             return None
 
     @staticmethod
+    def normalize_dhan_binary(raw_bytes: bytes) -> Optional[MarketTick]:
+        """
+        Parses DhanHQ v2 binary market data packet.
+        Handles Header (8 bytes) + Ticker / Quote payload with struct unpacking.
+        """
+        import struct
+        if not raw_bytes or len(raw_bytes) < 8:
+            return None
+
+        try:
+            # Header: Response Code (1B), Length (2B, <H), Exchange (1B), SecurityId (4B, <I)
+            response_code, msg_len, exchange, security_id = struct.unpack("<BHBI", raw_bytes[:8])
+            symbol = str(security_id)
+
+            # Response Code 2: LTP Packet (8 bytes header + 4 bytes float LTP)
+            if response_code == 2 and len(raw_bytes) >= 12:
+                ltp = round(float(struct.unpack("<f", raw_bytes[8:12])[0]), 2)
+                best_bid = max(0.05, round(ltp - 0.10, 2))
+                best_ask = round(ltp + 0.10, 2)
+                return MarketTick(
+                    symbol=symbol,
+                    timestamp_ms=time.time() * 1000,
+                    ltp=ltp,
+                    volume=0,
+                    best_bid=best_bid,
+                    best_ask=best_ask,
+                    bid_size=65,
+                    ask_size=65,
+                    bids=[DepthLevel(price=best_bid, size=65)],
+                    asks=[DepthLevel(price=best_ask, size=65)]
+                )
+
+            # Response Code 4 or 8: Depth / Quote Packet
+            elif (response_code in (4, 8)) and len(raw_bytes) >= 16:
+                ltp = round(float(struct.unpack("<f", raw_bytes[8:12])[0]), 2)
+                volume = struct.unpack("<I", raw_bytes[12:16])[0]
+                
+                bids = []
+                asks = []
+                best_bid = max(0.05, round(ltp - 0.10, 2))
+                best_ask = round(ltp + 0.10, 2)
+                bid_size = 65
+                ask_size = 65
+
+                offset = 16
+                if len(raw_bytes) >= offset + 50:
+                    try:
+                        for _ in range(5):
+                            if offset + 10 <= len(raw_bytes):
+                                b_price, b_qty, b_ord = struct.unpack("<fIH", raw_bytes[offset:offset+10])
+                                if b_price > 0:
+                                    bids.append(DepthLevel(price=round(float(b_price), 2), size=int(b_qty), orders=int(b_ord)))
+                                offset += 10
+                        for _ in range(5):
+                            if offset + 10 <= len(raw_bytes):
+                                a_price, a_qty, a_ord = struct.unpack("<fIH", raw_bytes[offset:offset+10])
+                                if a_price > 0:
+                                    asks.append(DepthLevel(price=round(float(a_price), 2), size=int(a_qty), orders=int(a_ord)))
+                                offset += 10
+                        if bids:
+                            best_bid = bids[0].price
+                            bid_size = bids[0].size
+                        if asks:
+                            best_ask = asks[0].price
+                            ask_size = asks[0].size
+                    except Exception:
+                        pass
+
+                return MarketTick(
+                    symbol=symbol,
+                    timestamp_ms=time.time() * 1000,
+                    ltp=ltp,
+                    volume=int(volume),
+                    best_bid=best_bid,
+                    best_ask=best_ask,
+                    bid_size=bid_size,
+                    ask_size=ask_size,
+                    bids=bids if bids else [DepthLevel(price=best_bid, size=bid_size)],
+                    asks=asks if asks else [DepthLevel(price=best_ask, size=ask_size)]
+                )
+
+        except Exception:
+            return None
+
+        return None
+
+    @staticmethod
     def create_synthetic_tick(
         symbol: str,
         mid_price: float,

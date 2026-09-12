@@ -6,7 +6,7 @@ Validates system resilience under severe negative market conditions:
   Phase 2: Capital Depletion & Floor Breach
            -> Verifies instant Latching Kill Switch engagement and fail-closed lock.
   Phase 3: Order Rejection Gate & Recovery Verification
-           -> Verifies broker rejects orders while switch is latched, and only recovers with CONFIRM_RESET.
+           -> Verifies broker rejects orders while switch is latched, and only recovers with verified cryptographic HMAC token.
 """
 
 import asyncio
@@ -61,7 +61,7 @@ class AdversarialStressTester:
 
     def _reset_environment(self) -> None:
         """Resets all singletons to fresh baseline."""
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
         drift_guard.reset()
         learning_engine.reset()
         position_tracker.reset()
@@ -224,7 +224,7 @@ class AdversarialStressTester:
 
         valid_reset_succeeded = False
         try:
-            kill_switch.reset("CONFIRM_RESET")
+            kill_switch.reset_system()
             valid_reset_succeeded = (kill_switch.is_engaged is False)
         except Exception:
             valid_reset_succeeded = False

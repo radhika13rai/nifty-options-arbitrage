@@ -82,25 +82,38 @@ class MarketDataFeed:
     async def _run_dhan_feed(self) -> None:
         """DhanHQ v2 live WebSocket client for market depth (data feed only)."""
         import websockets
+        
+        # Guard against connecting without actual credentials
+        if not config.dhan_access_token or not config.dhan_client_id:
+            logger.info("MarketDataFeed: DhanHQ credentials not configured. Live feed idle.")
+            return
+
         ws_url = f"wss://api-feed.dhan.co?version=2&token={config.dhan_access_token}&clientId={config.dhan_client_id}&authType=2"
         
         while self.is_running:
             try:
+                logger.info("MarketDataFeed: Connecting to DhanHQ Live Market Feed at wss://api-feed.dhan.co (credentials masked)...")
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10) as ws:
-                    logger.info("Connected to DhanHQ Live Market Feed.")
+                    logger.info("MarketDataFeed: Successfully connected to DhanHQ Live Market Feed.")
                     while self.is_running:
                         msg = await ws.recv()
+                        tick = None
                         if isinstance(msg, bytes):
-                            # Binary packet unpack if enabled, else handle JSON
-                            continue
-                        data = json.loads(msg)
-                        tick = MarketDataNormalizer.normalize_dhan_tick(data)
+                            tick = MarketDataNormalizer.normalize_dhan_binary(msg)
+                        else:
+                            try:
+                                data = json.loads(msg)
+                                tick = MarketDataNormalizer.normalize_dhan_tick(data)
+                            except Exception:
+                                pass
+                        
                         if tick:
                             self._dispatch(tick)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning(f"Dhan WebSocket disconnected: {e}. Reconnecting in 3s...")
+                clean_err = str(e).replace(config.dhan_access_token, "[REDACTED]") if config.dhan_access_token else str(e)
+                logger.warning(f"MarketDataFeed: Connection dropped ({clean_err}). Reconnecting in 3s...")
                 await asyncio.sleep(3.0)
 
 

@@ -4,7 +4,7 @@ Tests:
   1. Consecutive loss streak triggering automatic Model Drift Guard rollback
   2. Capital floor breach triggering latching Emergency Kill Switch
   3. Pre-trade risk gate hard-rejecting all orders while kill switch is engaged
-  4. Cryptographic token security (invalid password fails, CONFIRM_RESET succeeds)
+  4. Cryptographic token security (invalid signature fails, valid HMAC signature succeeds)
   5. SQLite risk event logging and audit trails
 """
 
@@ -16,9 +16,9 @@ from simulation.stress_test import AdversarialStressTester
 @pytest.fixture(autouse=True)
 def clean_system_state():
     """Ensures clean kill switch and risk state before and after each test."""
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
     yield
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
 
 
 @pytest.mark.anyio
@@ -51,5 +51,5 @@ async def test_kill_switch_tamper_proofing():
         assert kill_switch.is_engaged is True
 
     # Valid token unlocks
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
     assert kill_switch.is_engaged is False

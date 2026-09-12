@@ -288,7 +288,7 @@ class PaperSoakRunner:
         learning_engine.reset()
         position_tracker.reset()
         pnl_manager.reset(self.config.initial_capital)
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
         drift_guard.reset()
         auto_engine.enable()
 

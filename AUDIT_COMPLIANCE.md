@@ -51,7 +51,7 @@ flowchart TD
 * **Per-Trade Stop Loss:** Hard-capped at ₹150.00 (~2.30 points).
 * **Max Daily Loss:** Hard-capped at ₹300.00.
 * **Lot Size Invariant:** All orders must specify exactly 65 units (1 lot). Any order with quantity $\ne 65$ or lots $> 1$ must be rejected.
-* **Latching Kill Switch & Reset Protocol:** Engaging the kill switch transitions state in $< 1\,\mu\text{s}$ and latches permanently. Resetting requires HMAC-SHA256 signature verification (`hmac.compare_digest`) or an authorized confirmation token (`CONFIRM_RESET`), evaluated in constant-time to eliminate timing side-channel vulnerabilities.
+* **Latching Kill Switch & Reset Protocol:** Engaging the kill switch transitions state in $< 1\,\mu\text{s}$ and latches permanently. Resetting strictly requires cryptographic HMAC-SHA256 signature verification (`hmac.compare_digest`) using an authorized operator secret or session token, evaluated in constant-time to eliminate timing side-channel vulnerabilities. Hardcoded or plaintext bypasses are completely eliminated.
 
 ### Invariant 2: Fail-Closed Staleness Guard (`risk/stale_data_guard.py`)
 * Market ticks with latency $> 1,500\,\text{ms}$ or missing orderbooks (`age_ms = inf`) must be dropped immediately. Orders relying on stale ticks must be rejected.

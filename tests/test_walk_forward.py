@@ -17,7 +17,7 @@ from risk.kill_switch import kill_switch
 
 @pytest.fixture(autouse=True)
 def reset_engine_state():
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
     learning_engine.reset()
     position_tracker.reset()
     auto_engine._active_trades.clear()

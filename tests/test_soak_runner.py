@@ -28,10 +28,10 @@ from simulation.soak_runner import (
 @pytest.fixture(autouse=True)
 def clean_soak_state():
     """Ensures clean state before and after each test."""
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
     soak_runner.reset()
     yield
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
     soak_runner.reset()
 
 

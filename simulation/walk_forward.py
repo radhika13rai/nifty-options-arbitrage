@@ -389,7 +389,7 @@ class WalkForwardSimulator:
         Executes the walk-forward simulation day-by-day.
         """
         from risk.kill_switch import kill_switch
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
         learning_engine.reset()
         position_tracker.reset()
         auto_engine._active_trades.clear()

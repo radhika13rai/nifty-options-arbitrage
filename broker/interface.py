@@ -16,6 +16,8 @@ class BrokerOrderRequest:
     quantity: int
     price: float = 0.0
     client_order_id: str = ""
+    stop_loss_price: Optional[float] = None
+    target_price: Optional[float] = None
 
 
 @dataclass(frozen=True)

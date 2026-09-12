@@ -129,28 +129,43 @@ class LiveMarketDataStreamer:
     async def _run_live_websocket(self) -> None:
         """DhanHQ read-only WebSocket client with automatic exponential backoff."""
         import websockets
+        
+        # Guard against connecting without actual credentials
+        if not config.dhan_access_token or not config.dhan_client_id:
+            logger.info("LiveMarketDataStreamer: DhanHQ credentials not configured. Live feed idle.")
+            return
+
         ws_url = f"wss://api-feed.dhan.co?version=2&token={config.dhan_access_token}&clientId={config.dhan_client_id}&authType=2"
         backoff = 1.0
 
         while self.is_running:
             try:
+                # Sanitize logged endpoint to protect credentials from leaking
+                logger.info("LiveMarketDataStreamer: Connecting to DhanHQ Live Market Feed at wss://api-feed.dhan.co (credentials masked)...")
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10) as ws:
-                    logger.info("LiveMarketDataStreamer: Connected to DhanHQ Live Market Feed.")
+                    logger.info("LiveMarketDataStreamer: Successfully connected to DhanHQ Live Market Feed.")
                     backoff = 1.0
 
                     while self.is_running:
                         msg = await ws.recv()
+                        tick = None
                         if isinstance(msg, bytes):
-                            continue
-                        data = json.loads(msg)
-                        tick = MarketDataNormalizer.normalize_dhan_tick(data)
+                            tick = MarketDataNormalizer.normalize_dhan_binary(msg)
+                        else:
+                            try:
+                                data = json.loads(msg)
+                                tick = MarketDataNormalizer.normalize_dhan_tick(data)
+                            except Exception:
+                                pass
+                        
                         if tick:
                             self.dispatch_tick(tick)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 self._reconnect_count += 1
-                logger.warning(f"LiveMarketDataStreamer: Connection dropped ({e}). Reconnecting in {backoff:.1f}s...")
+                clean_err = str(e).replace(config.dhan_access_token, "[REDACTED]") if config.dhan_access_token else str(e)
+                logger.warning(f"LiveMarketDataStreamer: Connection dropped ({clean_err}). Reconnecting in {backoff:.1f}s...")
                 await asyncio.sleep(backoff)
                 backoff = min(30.0, backoff * 1.5)
 

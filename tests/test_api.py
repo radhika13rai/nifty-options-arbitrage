@@ -42,20 +42,70 @@ def test_arbitrage_scanner_endpoint():
 
 def test_kill_switch_api():
     """Verify manual kill switch engagement and reset via API."""
+    from risk.kill_switch import kill_switch
     with TestClient(app) as client:
         # Engage
         res1 = client.post("/api/kill-switch", json={"action": "engage", "reason": "API Unit Test"})
         assert res1.status_code == 200
         assert res1.json()["status"]["is_engaged"] is True
 
-        # Reset with wrong token should fail
+        # Reset with wrong token should fail (403 or 400)
         res2 = client.post("/api/kill-switch", json={"action": "reset", "token": "WRONG_TOKEN"})
-        assert res2.status_code == 400
+        assert res2.status_code in (400, 403)
 
-        # Reset with correct token should succeed
-        res3 = client.post("/api/kill-switch", json={"action": "reset", "token": "CONFIRM_RESET"})
+        # Reset with valid cryptographic HMAC token should succeed
+        valid_token = kill_switch.generate_reset_token()
+        res3 = client.post("/api/kill-switch", json={"action": "reset", "token": valid_token})
         assert res3.status_code == 200
         assert res3.json()["status"]["is_engaged"] is False
+
+
+def test_api_authentication():
+    """Verify API authentication middleware rejects unauthorized requests when SERQ_API_KEY is active."""
+    import os
+    from api import auth
+    original_key = auth.SERQ_API_KEY
+    try:
+        # Configure active API key
+        auth.SERQ_API_KEY = "test_serq_secret_key_999"
+        # Also update middleware instance on app
+        for mw in app.user_middleware:
+            if mw.cls == auth.AuthenticationMiddleware:
+                pass
+
+        # Use test client with configured key on middleware directly
+        from starlette.applications import Starlette
+        from starlette.routing import Route
+        from starlette.responses import JSONResponse
+        from starlette.middleware import Middleware
+
+        async def dummy_endpoint(req):
+            return JSONResponse({"status": "ok"})
+
+        test_routes = [Route("/api/paper/order", dummy_endpoint, methods=["POST"])]
+        test_app = Starlette(
+            routes=test_routes,
+            middleware=[Middleware(auth.AuthenticationMiddleware, api_key="test_serq_secret_key_999")]
+        )
+
+        with TestClient(test_app) as client:
+            # 1. No key -> 401
+            r1 = client.post("/api/paper/order", json={"symbol": "NIFTY"})
+            assert r1.status_code == 401
+
+            # 2. Wrong key -> 401
+            r2 = client.post("/api/paper/order", json={"symbol": "NIFTY"}, headers={"X-API-Key": "wrong"})
+            assert r2.status_code == 401
+
+            # 3. Valid key via X-API-Key -> 200
+            r3 = client.post("/api/paper/order", json={"symbol": "NIFTY"}, headers={"X-API-Key": "test_serq_secret_key_999"})
+            assert r3.status_code == 200
+
+            # 4. Valid key via Bearer token -> 200
+            r4 = client.post("/api/paper/order", json={"symbol": "NIFTY"}, headers={"Authorization": "Bearer test_serq_secret_key_999"})
+            assert r4.status_code == 200
+    finally:
+        auth.SERQ_API_KEY = original_key
 
 
 def test_ml_endpoints():

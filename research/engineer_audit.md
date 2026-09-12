@@ -20,7 +20,7 @@ An exhaustive architectural, code quality, latency, and test suite audit was con
 3. **Memory Safety:** Ingestion of over 25,000 continuous ticks demonstrated zero unbounded memory growth. Fixed rolling histories (`max_history=120`) and lightweight dataclasses ensure leak-free operation.
 4. **Non-Blocking Persistence:** SQLite WAL mode (`PRAGMA journal_mode = WAL`) combined with `asyncio.to_thread()` ensures zero asyncio event-loop starvation during disk I/O operations.
 5. **Fail-Closed Staleness Guard:** The 1,500 ms staleness guard unconditionally rejects stale ticks and missing orderbooks (`age_ms = inf`).
-6. **Latching Emergency Kill-Switch:** State transitions occur in under 0.8 µs; the kill-switch latches indefinitely until an explicit reset token (`"CONFIRM_RESET"`) is received, and automatically latches if daily loss breaches ₹300.
+6. **Latching Emergency Kill-Switch:** State transitions occur in under 0.8 µs; the kill-switch latches indefinitely until an authentic HMAC-SHA256 operator signature is verified, and automatically latches if daily loss breaches ₹300.
 7. **Compile-Time & Runtime Live Trading Lock:** `LiveTradingPermanentlyDisabledBroker`, `DhanBrokerClient`, `ZerodhaBrokerClient`, and `AppConfig` enforce multi-layer fail-closed runtime exceptions blocking live order placement in V1.
 8. **Pure-Python Numerical Stability:** Pure-Python Gauss-Jordan elimination with partial pivoting and L2 Ridge regularization (`lambda * N * I`) stably handles rank-deficient and singular matrices without relying on NumPy or SciPy.
 
@@ -117,7 +117,7 @@ flowchart TD
 * **Requirement:** Emergency kill-switch must halt all routing instantaneously and resist inadvertent resets.
 * **Audit Analysis:**
   - `KillSwitch.engage()` transitions `_is_engaged = True` immediately upon invocation (latency < 0.8 µs).
-  - In `KillSwitch.reset(reset_token)`, string verification requires `reset_token == "CONFIRM_RESET"`. Any empty string or alternative value triggers `ValueError`.
+  - In `KillSwitch.reset(reset_token)`, signature verification strictly requires valid HMAC-SHA256 digest (`hmac.compare_digest`). Any empty or invalid signature triggers `ValueError`.
   - In `PreTradeRiskEngine.validate_order()`, if `daily_realized_loss_inr >= 300.0`, `kill_switch.engage()` is autonomously invoked with source `"RISK_BREACH"`.
   - All subsequent orders are blocked at Step 1 of `validate_order`.
   - **Verdict:** **PASSED.**
@@ -297,7 +297,7 @@ tests/test_transaction_costs.py::test_round_trip_breakeven PASSED        [100%]
 | **Memory Safety** | Bounded memory queues, zero leak | **VERIFIED** | 25,000 tick burst verified: memory diff $< 50$ KB, queue length bounded to 120 |
 | **Async WAL SQLite** | Non-blocking WAL mode, async thread pool | **VERIFIED** | `PRAGMA journal_mode = WAL`, `asyncio.to_thread` for all queries/writes |
 | **Staleness Guard** | Fail-closed on ticks $> 1,500$ ms | **VERIFIED** | `StaleDataGuard` rejects stale ticks and missing snapshots (`age_ms = inf`) |
-| **Kill-Switch** | Latched halt, ₹300 daily loss trigger | **VERIFIED** | Latching verified; requires `"CONFIRM_RESET"`; triggered autonomously at ₹300 loss |
+| **Kill-Switch** | Latched halt, ₹300 daily loss trigger | **VERIFIED** | Latching verified; requires valid HMAC signature; triggered autonomously at ₹300 loss |
 | **Live Order Lock** | Permanent compile-time & runtime lock | **VERIFIED** | `LiveTradingPermanentlyDisabledBroker`, `DhanBrokerClient`, `ZerodhaBrokerClient` raise `RuntimeError` |
 | **Numerical Stability**| Pure-Python Ridge regression on singular matrices | **VERIFIED** | L2 penalty ($\lambda N \mathbf{I}$) and pivoting floor guarantee stable inversion without NaN/Inf |
 | **Lot Size Compliance**| Strict NIFTY lot size 65 | **VERIFIED** | Config, instruments, orders, and tests all mandate 65 units |

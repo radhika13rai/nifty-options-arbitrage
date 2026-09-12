@@ -108,11 +108,12 @@ class PreTradeRiskEngine:
                     f"Insufficient capital: Required ₹{total_required_outflow:.2f} (premium ₹{breakdown.turnover:.2f} + fees ₹{breakdown.total_costs:.2f}), available cash ₹{current_cash_inr:.2f}"
                 )
 
-            # 7. Max trade loss exposure check (if stop loss is provided)
-            if order.side == "BUY" and order.stop_loss_price is not None:
-                max_points_loss = order.price - order.stop_loss_price
+            # 7. Max trade loss exposure check (mandatory ₹150 cap enforcement)
+            if order.side == "BUY":
+                effective_stop = order.stop_loss_price if order.stop_loss_price is not None else max(0.05, order.price - 2.30)
+                max_points_loss = order.price - effective_stop
                 if max_points_loss > 0:
-                    potential_trade_loss = (max_points_loss * order.quantity) + (breakdown.total_costs * 2)  # round trip fees
+                    potential_trade_loss = round(max_points_loss * order.quantity, 2)
                     if potential_trade_loss > self.limits.max_trade_loss_inr:
                         violations.append(
                             f"Trade risk ₹{potential_trade_loss:.2f} exceeds max allowed ₹{self.limits.max_trade_loss_inr:.2f} per trade"

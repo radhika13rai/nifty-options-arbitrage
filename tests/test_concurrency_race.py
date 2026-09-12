@@ -42,7 +42,7 @@ def test_kill_switch_torn_read_and_concurrency():
         for i in range(200):
             ks.engage(f"Contention test breach {i}", "TEST")
             time.sleep(0.0005)
-            ks.reset("CONFIRM_RESET")
+            ks.reset_system()
             time.sleep(0.0005)
 
     threads = [threading.Thread(target=reader) for _ in range(8)]
@@ -112,7 +112,7 @@ def test_atomic_execution_gate_eliminates_check_then_act_race():
         for _ in range(100):
             kill_switch.engage("Adversarial race test", "TEST")
             time.sleep(0.001)
-            kill_switch.reset("CONFIRM_RESET")
+            kill_switch.reset_system()
             time.sleep(0.001)
 
     workers = [threading.Thread(target=worker) for _ in range(6)]
@@ -128,7 +128,7 @@ def test_atomic_execution_gate_eliminates_check_then_act_race():
         w.join()
 
     if kill_switch.is_engaged:
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
 
     assert len(race_violations) == 0, f"Check-then-act race violations detected: {race_violations}"
     assert approved_count[0] > 0
@@ -213,7 +213,7 @@ async def test_paper_broker_concurrent_kill_switch_safety():
         for _ in range(20):
             kill_switch.engage("Broker concurrency test", "TEST")
             time.sleep(0.01)
-            kill_switch.reset("CONFIRM_RESET")
+            kill_switch.reset_system()
             time.sleep(0.01)
 
     trig_thread = threading.Thread(target=trigger)
@@ -226,7 +226,7 @@ async def test_paper_broker_concurrent_kill_switch_safety():
     trig_thread.join()
 
     if kill_switch.is_engaged:
-        kill_switch.reset("CONFIRM_RESET")
+        kill_switch.reset_system()
 
     assert len(race_detected) == 0, f"Race detected in PaperBroker: {race_detected}"
     assert rejected_count[0] > 0

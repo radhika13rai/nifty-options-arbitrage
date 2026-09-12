@@ -75,7 +75,7 @@ The latching kill switch transitions from `NORMAL` to `ENGAGED` upon:
 - Manual operator engagement via Web HUD or REST API.
 - Daily realized loss exceeding ₹300.00.
 - Account cash dropping below emergency floor ₹2,000.00.
-Once engaged, it can only be reset with the explicit verification token `"CONFIRM_RESET"`.
+Once engaged, it can only be reset with an authorized cryptographic HMAC-SHA256 signature token.
 
 ---
 

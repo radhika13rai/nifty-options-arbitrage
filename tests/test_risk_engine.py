@@ -53,7 +53,7 @@ def test_reject_daily_loss_breach():
     assert res.passed is False
     assert any("DAILY_LOSS_LIMIT_EXCEEDED" in v for v in res.violations)
     # Reset kill switch after test
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
 
 
 def test_reject_when_capital_below_floor():
@@ -85,7 +85,7 @@ def test_reject_when_kill_switch_engaged():
     res = engine.validate_order(req, current_cash_inr=3000.0, daily_realized_loss_inr=0.0)
     assert res.passed is False
     assert any("KILL_SWITCH_ENGAGED" in v for v in res.violations)
-    kill_switch.reset("CONFIRM_RESET")
+    kill_switch.reset_system()
 
 
 def test_kill_switch_hmac_cryptographic_verification():

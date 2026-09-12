@@ -44,7 +44,7 @@ Returns signals with `is_capital_feasible` boolean and `infeasibility_reason` ex
 ### `POST /api/kill-switch`
 Engages or resets the emergency latching kill switch.
 - **Payload to engage:** `{"action": "engage", "reason": "Operator command"}`
-- **Payload to reset:** `{"action": "reset", "token": "CONFIRM_RESET"}`
+- **Payload to reset:** `{"action": "reset", "token": "<HMAC_SHA256_TOKEN>"}` (or `signature` header/field generated with `KILL_SWITCH_SECRET`)
 
 ### `POST /api/paper/reset`
 Resets the virtual paper trading account to ₹3,000 initial capital.

@@ -104,12 +104,19 @@ class PaperBroker(AbstractBrokerClient):
                 pnl_report = pnl_manager.generate_report()
                 daily_loss = max(0.0, -pnl_report.gross_realized_pnl + pnl_report.total_friction_inr)
 
+                effective_stop = request.stop_loss_price
+                if request.side == "BUY":
+                    if effective_stop is None or round(simulated_fill_price - effective_stop, 2) > 2.30:
+                        effective_stop = round(max(0.05, simulated_fill_price - 2.30), 2)
+
                 risk_req = PreTradeOrderRequest(
                     symbol=request.symbol,
                     side=request.side,
                     order_type=request.order_type,
                     price=simulated_fill_price,
-                    quantity=request.quantity
+                    quantity=request.quantity,
+                    stop_loss_price=effective_stop,
+                    target_price=request.target_price
                 )
                 risk_result = risk_engine.validate_order(
                     order=risk_req,

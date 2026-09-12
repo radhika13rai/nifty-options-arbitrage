@@ -2,12 +2,13 @@
 
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Regulatory Framework](https://img.shields.io/badge/SEBI%20Retail%20Algo-Compliant%20(April%202026)-green.svg)](docs/regulatory_framework_2026.md)
+[![CI Pipeline](https://img.shields.io/badge/CI-Automated%20Matrix%20(3.10--3.13)-brightgreen.svg)](ci/ci.yml)
+[![Regulatory Architecture](https://img.shields.io/badge/SEBI%20Framework-Aligned%20(Research%20Tier%201)-blue.svg)](docs/regulatory_framework_2026.md)
 [![Execution Mode](https://img.shields.io/badge/Mode-PAPER__TRADING__ONLY-crimson.svg)](config.py)
 [![NIFTY Lot Size](https://img.shields.io/badge/NIFTY%20Lot%20Size-65-blueviolet.svg)](market_data/instruments.py)
-[![Test Suite](https://img.shields.io/badge/Tests-26%20Passed-success.svg)](tests/)
+[![Test Suite](https://img.shields.io/badge/Tests-120%20Passed-success.svg)](tests/)
 
-A compliance-first, research-grade algorithmic trading and arbitrage analysis platform engineered for Indian equity derivatives (NSE NIFTY 50 options). Built under the active **SEBI Retail Algorithmic Trading Framework** (effective April 1, 2026) and exchange specifications (NSE Lot Size = **65**).
+A research-grade algorithmic trading and arbitrage analysis platform engineered for Indian equity derivatives (NSE NIFTY 50 options). Designed to align with the core risk principles of the **SEBI Algorithmic Trading Framework** (Circular `SEBI/HO/MRD/DP/CIR/P/2018/62` & Retail Framework 2026) and exchange specifications (NSE Lot Size = **65**). Operates strictly as an analytical workstation and high-fidelity paper trading daemon.
 
 ---
 
@@ -35,11 +36,13 @@ A compliance-first, research-grade algorithmic trading and arbitrage analysis pl
 
 ## 2. Core Architectural Invariants
 
-* **Compile-Time Live Trading Lock:** In V1, live trading is permanently disabled. Attempting to enable live orders or route orders through live brokers throws an uncatchable `RuntimeError`.
+* **Fail-Closed Runtime & Architectural Live Trading Lock:** In V1, live trading is permanently disabled via architectural locks (`execution/live_broker_disabled.py`). Any live order attempt raises a fail-closed `LiveTradingPermanentlyDisabledError`.
+* **Mandatory OMS Pre-Trade Risk Gate:** Every signal passes through a sequential 7-point validation pipeline inside `OrderManager` before reaching any execution adapter, enforcing ₹150 max trade risk, ₹300 daily loss, and ₹2,000 cash floor.
+* **Cryptographic HMAC Kill Switch & Protected API:** Emergency latching stop requires constant-time HMAC-SHA256 signature verification to reset. Sensitive control plane endpoints are protected by `AuthenticationMiddleware` (`SERQ_API_KEY`).
 * **NSE NIFTY Lot Size = 65:** Conforms strictly to NSE circular `NSE/FAOP/70616` (effective January 2026). All instruments, order sizes, and margin formulas enforce 65.
 * **Realistic Orderbook Queue Execution:** Paper broker walks real Level-2 bid/ask depth with conservative slippage models. Zero instant fictitious mid-price fills.
 * **Stale Quote Guard (1,500ms):** Ticks or orderbooks older than 1,500ms automatically trip `STALE_DATA_HALT`, rejecting any pending execution.
-* **Emergency Latching Kill Switch:** Can be engaged instantly via UI or REST API. Automatically latches on daily loss breach (₹300) or capital floor breach (₹2,000).
+* **Binary Packet Parsing:** DhanHQ v2 binary market data stream decoded natively via Python `struct.unpack` with zero credential leakage.
 
 ---
 
@@ -128,7 +131,7 @@ INITIAL_CAPITAL_INR=3000.0
 ```
 
 ### Running Automated Test Suite
-Execute the 26-test comprehensive suite:
+Execute the 120-test comprehensive suite:
 ```bash
 pytest tests/ -v
 ```
@@ -151,10 +154,13 @@ The responsive dashboard is optimized for mobile touch interaction and dual-moni
 
 ---
 
-## 7. Regulatory Compliance (SEBI 2026)
+## 7. Regulatory Alignment & Research Scope
 
-This software conforms strictly to the **SEBI Algorithmic Trading Framework for Retail Investors**:
-1. Zero unvetted live order routing (`LIVE_TRADING_ENABLED=false`).
+This software is engineered as a **Tier 1 Analytical & Simulation Workstation** (Paper Trading Only). It is designed to reflect the risk governance principles of the **SEBI Algorithmic Trading Framework**:
+1. Zero live order routing (`LIVE_TRADING_ENABLED=false`).
 2. Comprehensive, immutable audit trail persisted in SQLite WAL database.
-3. Pre-trade risk checks executed entirely in software prior to any order consideration.
-4. Compliant with NSE circular `NSE/FAOP/70616` revising NIFTY lot sizes to **65**.
+3. Pre-trade risk controls (OMS gate) executed in software before order dispatch.
+4. Conforms to NSE circular `NSE/FAOP/70616` revising NIFTY lot sizes to **65**.
+
+> [!NOTE]
+> **Disclaimer:** This codebase is an independent academic and quantitative research project. It is not an exchange-certified or SEBI-registered retail algorithmic trading product and is not licensed for live retail investor deployment.

@@ -4,6 +4,7 @@ Calculates instantaneous gross P&L, statutory friction breakdown, net P&L, and d
 """
 
 from dataclasses import dataclass
+from typing import Optional
 import time
 from config import config
 from portfolio.positions import position_tracker

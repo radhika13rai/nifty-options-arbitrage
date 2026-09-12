@@ -27,9 +27,6 @@ class KillSwitchStatus:
 class KillSwitch:
     """Thread-safe latching kill switch with HMAC-SHA256 operator verification and atomic execution gate."""
 
-    DEFAULT_SECRET = "SERQ_OPERATOR_SECRET_KEY_2026"
-    STANDARD_TOKEN = "CONFIRM_RESET"
-
     def __init__(self, secret_key: Optional[str] = None):
         self._lock = threading.RLock()
         self._execution_lock = threading.RLock()
@@ -37,7 +34,18 @@ class KillSwitch:
         self._engaged_at: Optional[float] = None
         self._reason: str = "NORMAL_OPERATION"
         self._triggered_by: str = "NONE"
-        self._secret_key: str = secret_key or os.environ.get("KILL_SWITCH_SECRET", self.DEFAULT_SECRET)
+
+        # Load from parameter, environment, or generate secure random session secret
+        env_secret = os.environ.get("KILL_SWITCH_SECRET")
+        if secret_key:
+            self._secret_key = secret_key
+        elif env_secret:
+            self._secret_key = env_secret
+        else:
+            # Ephemeral cryptographically strong secret unique to this process lifecycle
+            import secrets
+            self._secret_key = secrets.token_hex(32)
+            logger.info("Initialized ephemeral cryptographic secret for session lifecycle.")
 
     @property
     def is_engaged(self) -> bool:
@@ -79,20 +87,17 @@ class KillSwitch:
 
     def reset(self, reset_token: str, nonce: str = "RESET_AUTHORIZATION") -> KillSwitchStatus:
         """
-        Disengages the kill switch using HMAC-SHA256 cryptographic verification
-        or authenticated confirmation token using constant-time digest comparison.
+        Disengages the kill switch strictly using HMAC-SHA256 cryptographic signature
+        verification with constant-time digest comparison.
         """
         if not reset_token:
-            raise ValueError("Reset token is required to disengage kill switch.")
+            raise ValueError("Cryptographic reset signature is required to disengage kill switch.")
 
         expected_hmac = self.generate_reset_token(nonce=nonce)
         
         # Constant-time comparison to prevent timing attacks
-        is_valid_hmac = hmac.compare_digest(reset_token, expected_hmac)
-        is_valid_standard = hmac.compare_digest(reset_token, self.STANDARD_TOKEN)
-
-        if not (is_valid_hmac or is_valid_standard):
-            raise ValueError("Cryptographic verification failed: invalid operator authorization token.")
+        if not hmac.compare_digest(reset_token, expected_hmac):
+            raise ValueError("Cryptographic verification failed: invalid operator HMAC-SHA256 signature.")
 
         with self._execution_lock:
             with self._lock:
@@ -100,8 +105,13 @@ class KillSwitch:
                 self._engaged_at = None
                 self._reason = "RESET_TO_NORMAL"
                 self._triggered_by = "OPERATOR"
-        logger.warning("Kill switch disengaged by authorized operator token.")
+        logger.warning("Kill switch disengaged by verified operator HMAC-SHA256 signature.")
         return self.get_status()
+
+    def reset_system(self, nonce: str = "RESET_AUTHORIZATION") -> KillSwitchStatus:
+        """Internal/trusted reset using the instance's active cryptographic key."""
+        token = self.generate_reset_token(nonce=nonce)
+        return self.reset(token, nonce=nonce)
 
     def get_status(self) -> KillSwitchStatus:
         with self._lock:
