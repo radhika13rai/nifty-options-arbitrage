@@ -675,6 +675,9 @@
     <button class="tab-pill-btn" onclick="switchTab('tab-orders')" id="nav-tab-orders">
       <span>📋</span> Orders & Trades
     </button>
+    <button class="tab-pill-btn" onclick="switchTab('tab-greeks')" id="nav-tab-greeks">
+      <span>📐</span> Greeks & Screener
+    </button>
   </nav>
 
   <!-- Main Container -->
@@ -1107,6 +1110,196 @@
       </div>
     </section>
 
+    <!-- ======================================================== -->
+    <!-- TAB 4: BLACK-SCHOLES GREEKS & STRIKE SCREENER             -->
+    <!-- ======================================================== -->
+    <section id="tab-greeks" class="tab-content">
+
+      <!-- Dynamic Strike Screener Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge" style="background: rgba(0, 230, 118, 0.1); color: var(--emerald);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="22" y1="12" x2="18" y2="12"></line>
+              <line x1="6" y1="12" x2="2" y2="12"></line>
+              <line x1="12" y1="6" x2="12" y2="2"></line>
+              <line x1="12" y1="22" x2="12" y2="18"></line>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">MICRO-CAPITAL DYNAMIC SELECTION</div>
+            <h3>NIFTY OTM Strike Screener</h3>
+            <p>Budget: ₹3,000 | Max Premium: ₹38.00 | Delta: 0.15 - 0.30</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0;">
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">SPOT PRICE (₹)</label>
+            <input id="scr-spot" type="number" value="24500" step="50" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 10px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">DIRECTIONAL BIAS</label>
+            <select id="scr-bias" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 10px; font-weight: 700;">
+              <option value="BULLISH" selected>BULLISH (Call Options)</option>
+              <option value="BEARISH">BEARISH (Put Options)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">DAYS TO EXPIRY</label>
+            <input id="scr-days" type="number" value="4" step="0.5" min="0.1" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 10px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">IMPLIED VOL (%)</label>
+            <input id="scr-iv" type="number" value="15.5" step="0.5" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 10px; font-family: monospace;">
+          </div>
+        </div>
+
+        <button onclick="runScreenerUI()" class="btn-serq-primary" style="width: 100%; padding: 8px; font-size: 12px; font-weight: 800; margin-bottom: 12px;">
+          ⚡ Screen Liquid OTM Strikes
+        </button>
+
+        <div id="screener-result-card" style="display: none; background: #090e15; border: 1px solid var(--emerald-border); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-size: 10px; font-weight: 800; color: var(--emerald); letter-spacing: 1px;">★ RECOMMENDED OPTIMAL STRIKE</div>
+            <span id="rec-score-badge" class="tag-badge tag-live" style="font-size: 11px;">Score: 92.4</span>
+          </div>
+          <div style="font-size: 18px; font-weight: 800; color: #fff; font-family: monospace;" id="rec-symbol">NIFTY_2026-09-24_24900_CE</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; font-size: 11px;">
+            <div style="background: #0d1522; padding: 6px; border-radius: 6px; text-align: center;">
+              <div style="color: var(--text-muted); font-size: 9px;">PREMIUM</div>
+              <div style="font-weight: 800; color: var(--cyan);" id="rec-premium">₹36.51</div>
+            </div>
+            <div style="background: #0d1522; padding: 6px; border-radius: 6px; text-align: center;">
+              <div style="color: var(--text-muted); font-size: 9px;">1 LOT (65)</div>
+              <div style="font-weight: 800; color: #fff;" id="rec-outlay">₹2,373</div>
+            </div>
+            <div style="background: #0d1522; padding: 6px; border-radius: 6px; text-align: center;">
+              <div style="color: var(--text-muted); font-size: 9px;">DELTA (Δ)</div>
+              <div style="font-weight: 800; color: var(--emerald);" id="rec-delta">+0.172</div>
+            </div>
+            <div style="background: #0d1522; padding: 6px; border-radius: 6px; text-align: center;">
+              <div style="color: var(--text-muted); font-size: 9px;">THETA DECAY</div>
+              <div style="font-weight: 800; color: var(--rose);" id="rec-theta">-13.5 pt</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">ALL EVALUATED STRIKES</div>
+        <div class="serq-list-wrap" id="screener-chain-table" style="max-height: 240px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--text-muted); padding: 15px;">Click "Screen Liquid OTM Strikes" to evaluate.</div>
+        </div>
+      </div>
+
+      <!-- Black-Scholes Greeks Calculator Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge" style="background: rgba(0, 229, 255, 0.1); color: var(--cyan);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">ANALYTICAL SENSITIVITY ENGINE</div>
+            <h3>Black-Scholes Greeks Calculator</h3>
+            <p>Delta (Δ), Gamma (Γ), Theta (Θ), Vega (ν), Rho (ρ)</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 10px 0;">
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">SPOT</label>
+            <input id="bs-spot" type="number" value="24500" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 8px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">STRIKE</label>
+            <input id="bs-strike" type="number" value="24800" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 8px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">DAYS</label>
+            <input id="bs-days" type="number" value="4" step="0.5" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 8px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">IV (%)</label>
+            <input id="bs-iv" type="number" value="15.5" step="0.5" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 8px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">TYPE</label>
+            <select id="bs-type" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 8px; font-weight: 700;">
+              <option value="CE" selected>CALL (CE)</option>
+              <option value="PE">PUT (PE)</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="calculateGreeksUI()" class="btn-serq-secondary" style="width: 100%; padding: 6px; font-size: 11px; margin-bottom: 10px;">
+          Calculate Theoretical Greeks
+        </button>
+
+        <!-- Greeks Matrix Output -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;" id="greeks-output-grid">
+          <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-muted);">THEO PRICE</div>
+            <div style="font-size: 16px; font-weight: 800; color: var(--cyan);" id="out-price">₹56.69</div>
+            <div style="font-size: 9px; color: var(--text-muted);" id="out-outlay">65 units: ₹3,685</div>
+          </div>
+          <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-muted);">DELTA (Δ)</div>
+            <div style="font-size: 16px; font-weight: 800; color: var(--emerald);" id="out-delta">+0.2431</div>
+            <div style="font-size: 9px; color: var(--emerald);" id="out-delta-tag">Corridor: 0.15 - 0.30</div>
+          </div>
+          <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-muted);">GAMMA (Γ)</div>
+            <div style="font-size: 16px; font-weight: 800; color: #fff;" id="out-gamma">0.000787</div>
+            <div style="font-size: 9px; color: var(--text-muted);">Convexity Accel</div>
+          </div>
+          <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-muted);">THETA (Θ)</div>
+            <div style="font-size: 16px; font-weight: 800; color: var(--rose);" id="out-theta">-16.65 pt/d</div>
+            <div style="font-size: 9px; color: var(--rose);" id="out-theta-lot">-₹1,082 /lot/d</div>
+          </div>
+          <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-muted);">VEGA (ν) / 1%</div>
+            <div style="font-size: 16px; font-weight: 800; color: var(--emerald);" id="out-vega">+8.03 pt</div>
+            <div style="font-size: 9px; color: var(--emerald);" id="out-vega-lot">+₹522 /lot</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time IV Solver Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge" style="background: rgba(255, 171, 0, 0.1); color: var(--amber);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">NUMERICAL INVERSION</div>
+            <h3>Implied Volatility (IV) Solver</h3>
+            <p>Newton-Raphson with Bisection Fallback</p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: flex-end; margin-top: 8px;">
+          <div style="flex: 1;">
+            <label style="font-size: 10px; color: var(--text-muted); font-weight: 700;">MARKET OPTION PRICE (₹)</label>
+            <input id="iv-price" type="number" value="36.50" step="0.25" style="width: 100%; background: #0b111a; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; padding: 6px 10px; font-family: monospace;">
+          </div>
+          <button onclick="solveIVUI()" class="btn-serq-primary" style="padding: 6px 14px; font-size: 11px; font-weight: 700;">
+            Solve IV
+          </button>
+        </div>
+        <div id="iv-solver-result" style="margin-top: 10px; font-size: 12px; color: var(--text-muted);"></div>
+      </div>
+
+    </section>
+
   </main>
 
   <script>
@@ -1122,6 +1315,124 @@
 
       if (tabId === 'tab-arbitrage') refreshArbitrage();
       if (tabId === 'tab-orders') { loadOrders(); loadTrades(); }
+      if (tabId === 'tab-greeks') { calculateGreeksUI(); runScreenerUI(); }
+    }
+
+    // --- Tab 4: Greeks & Screener UI Handlers ---
+
+    async function calculateGreeksUI() {
+      const spot = parseFloat(document.getElementById('bs-spot')?.value) || 24500;
+      const strike = parseFloat(document.getElementById('bs-strike')?.value) || 24800;
+      const days = parseFloat(document.getElementById('bs-days')?.value) || 4;
+      const iv = (parseFloat(document.getElementById('bs-iv')?.value) || 15.5) / 100.0;
+      const optType = document.getElementById('bs-type')?.value || 'CE';
+
+      try {
+        const res = await fetch('/api/greeks/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spot, strike, days_to_expiry: days, iv, option_type: optType })
+        });
+        const data = await res.json();
+        if (data.status === 'SUCCESS') {
+          const g = data.greeks;
+          document.getElementById('out-price').innerText = '₹' + g.theoretical_price.toFixed(2);
+          document.getElementById('out-outlay').innerText = '65 units: ₹' + Math.round(g.theoretical_price * 65).toLocaleString();
+          document.getElementById('out-delta').innerText = (g.delta > 0 ? '+' : '') + g.delta.toFixed(4);
+          const absDelta = Math.abs(g.delta);
+          const deltaTag = document.getElementById('out-delta-tag');
+          if (absDelta >= 0.15 && absDelta <= 0.30) {
+            deltaTag.innerText = '★ In Corridor (0.15-0.30)';
+            deltaTag.style.color = 'var(--emerald)';
+          } else {
+            deltaTag.innerText = 'Out of Range (0.15-0.30)';
+            deltaTag.style.color = 'var(--amber)';
+          }
+          document.getElementById('out-gamma').innerText = g.gamma.toFixed(6);
+          document.getElementById('out-theta').innerText = g.theta_per_day.toFixed(2) + ' pt/d';
+          document.getElementById('out-theta-lot').innerText = (g.theta_per_lot_inr > 0 ? '+' : '') + Math.round(g.theta_per_lot_inr) + ' INR/lot/d';
+          document.getElementById('out-vega').innerText = (g.vega_per_1pct > 0 ? '+' : '') + g.vega_per_1pct.toFixed(2) + ' pt';
+          document.getElementById('out-vega-lot').innerText = '+' + Math.round(g.vega_per_lot_inr) + ' INR/lot';
+        }
+      } catch (err) {
+        console.error('Error calculating Greeks:', err);
+      }
+    }
+
+    async function solveIVUI() {
+      const price = parseFloat(document.getElementById('iv-price')?.value) || 36.5;
+      const spot = parseFloat(document.getElementById('bs-spot')?.value) || 24500;
+      const strike = parseFloat(document.getElementById('bs-strike')?.value) || 24800;
+      const days = parseFloat(document.getElementById('bs-days')?.value) || 4;
+      const optType = document.getElementById('bs-type')?.value || 'CE';
+      const resEl = document.getElementById('iv-solver-result');
+
+      try {
+        const res = await fetch('/api/greeks/iv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ market_price: price, spot, strike, days_to_expiry: days, option_type: optType })
+        });
+        const data = await res.json();
+        if (data.status === 'SUCCESS') {
+          resEl.innerHTML = `<span class="tag-badge tag-live" style="font-size: 11px;">Solved IV: ${data.iv_pct}%</span> (Annualized σ = ${data.implied_volatility})`;
+          const bsIv = document.getElementById('bs-iv');
+          if (bsIv) bsIv.value = data.iv_pct;
+        } else {
+          resEl.innerHTML = `<span class="tag-badge tag-infeasible" style="font-size: 11px;">No Solution</span> ${data.message || 'Arbitrage boundary violated.'}`;
+        }
+      } catch (err) {
+        resEl.innerHTML = `<span style="color: var(--rose);">Error solving IV</span>`;
+      }
+    }
+
+    async function runScreenerUI() {
+      const spot = parseFloat(document.getElementById('scr-spot')?.value) || 24500;
+      const bias = document.getElementById('scr-bias')?.value || 'BULLISH';
+      const days = parseFloat(document.getElementById('scr-days')?.value) || 4;
+      const iv = (parseFloat(document.getElementById('scr-iv')?.value) || 15.5) / 100.0;
+
+      const container = document.getElementById('screener-chain-table');
+      const recCard = document.getElementById('screener-result-card');
+      if (container) container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 15px;">Evaluating strikes...</div>';
+
+      try {
+        const res = await fetch(`/api/greeks/screener?spot=${spot}&bias=${bias}&days_to_expiry=${days}&iv=${iv}`);
+        const data = await res.json();
+        if (data.status === 'SUCCESS') {
+          if (data.best_strike && recCard) {
+            recCard.style.display = 'block';
+            const b = data.best_strike;
+            document.getElementById('rec-symbol').innerText = b.symbol;
+            document.getElementById('rec-score-badge').innerText = 'Score: ' + b.quality_score.toFixed(1);
+            document.getElementById('rec-premium').innerText = '₹' + b.market_price.toFixed(2);
+            document.getElementById('rec-outlay').innerText = '₹' + Math.round(b.capital_outlay).toLocaleString();
+            document.getElementById('rec-delta').innerText = (b.greeks.delta > 0 ? '+' : '') + b.greeks.delta.toFixed(3);
+            document.getElementById('rec-theta').innerText = b.greeks.theta_per_day.toFixed(1) + ' pt/d';
+          } else if (recCard) {
+            recCard.style.display = 'none';
+          }
+
+          let html = '<table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">';
+          html += '<thead><tr style="color: var(--text-muted); border-bottom: 1px solid var(--card-border);"><th style="padding: 6px;">Symbol</th><th>Strike</th><th>Price</th><th>Delta</th><th>Outlay</th><th>Status</th></tr></thead><tbody>';
+
+          (data.eligible_strikes || []).slice(0, 8).forEach(s => {
+            html += `<tr style="border-bottom: 1px solid #141c2b;">
+              <td style="padding: 6px; font-family: monospace; font-weight: 700; color: #fff;">${s.symbol}</td>
+              <td>${s.strike}</td>
+              <td style="color: var(--cyan); font-weight: 700;">₹${s.market_price.toFixed(2)}</td>
+              <td style="color: var(--emerald);">${s.greeks.delta > 0 ? '+' : ''}${s.greeks.delta.toFixed(3)}</td>
+              <td>₹${Math.round(s.capital_outlay)}</td>
+              <td><span class="tag-badge tag-live" style="font-size: 9px;">ELIGIBLE</span></td>
+            </tr>`;
+          });
+
+          html += '</tbody></table>';
+          if (container) container.innerHTML = html;
+        }
+      } catch (err) {
+        if (container) container.innerHTML = '<div style="color: var(--rose); padding: 15px; text-align: center;">Error screening strikes</div>';
+      }
     }
 
     // WebSocket Stream Connection
