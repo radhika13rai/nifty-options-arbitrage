@@ -1,46 +1,47 @@
 # SERQ QUANTITATIVE & RISK COMPLIANCE SPECIFICATION
 ## Technical Verification Guide & Auditor Test Harness
 
-**Document Version:** `1.1.0-REVISED`  
+**Document Version:** `1.2.0-REVISED (Post-Independent-Audit Hardened)`  
 **System Target:** SerQ Institutional NIFTY Options Arbitrage & Real-Time Trading Engine  
 **Repository Location:** `/root/nifty-options-arbitrage`  
 **GitHub Remote:** `https://github.com/radhika13rai/nifty-options-arbitrage`  
 **Git Branch:** `main`  
 **Supported Runtime:** Python >= 3.10 (Tested on Python 3.11, 3.12, 3.13, 3.14)  
-**Dependencies:** Pure-Python (Starlette, Uvicorn, WebSockets, HTTPX, AnyIO, Pytest) — zero compiled C/C++ wheels.  
+**Dependencies:** Pure-Python (`starlette>=0.46.0`, `uvicorn>=0.30.0`, `websockets>=13.0.0`, `httpx>=0.27.0`, `anyio>=4.0.0`, `pytest>=8.0.0`) — zero compiled C/C++ wheels.  
 **Classification:** Analytical Research Station & Paper Trading Daemon (Paper V1/V2) — **Live Broker Permanently Locked**
 
 ---
 
 > [!IMPORTANT]
-> **Independent Audit Notice:** This specification is an internal technical test harness and verification guide provided for external inspection. It does not constitute an independent third-party certification. Independent auditors must clone the repository in an isolated clean-room environment and execute the test procedures described herein.
+> **Independent Audit Notice:** This specification is an internal technical test harness and verification guide provided for external inspection. It incorporates empirical evaluation and remediation directives from the independent systems audit report ([`research/independent_empirical_audit.md`](file:///root/nifty-options-arbitrage/research/independent_empirical_audit.md)). Independent auditors must clone the repository in an isolated clean-room environment and execute the test procedures described herein.
 
 ---
 
 ## 1. System Architecture & Objectives
 
 SerQ is an asynchronous, event-driven trading workstation engineered specifically for **single-lot micro-capital options trading** under an uncompromising **₹3,000 account capital constraint**. It combines:
-1. **Deterministic Micro-Capital Pre-Trade Risk Engine:** Mathematical validation enforcing a hard ₹2,000 capital floor, a ₹150 stop loss, and single-leg options outlays ($\le ₹38.00$).
-2. **Microstructure Slippage & Fee Engine:** Models real-world Indian statutory taxes (~₹52.02/lot round-trip) and Level-2 orderbook queue walking with adverse selection.
+1. **Deterministic Micro-Capital Pre-Trade Risk Engine:** Mathematical validation enforcing a hard ₹2,000 capital floor, a ₹150 stop loss, single-leg options outlays ($\le ₹38.00$), and atomic execution gates eliminating check-then-act race windows.
+2. **Microstructure Slippage & Fee Engine:** Models real-world Indian statutory taxes and fee convexity (2.13% to 7.50% drag inside screener bounds; up to 36.53% on sub-₹10 options) and Level-2 orderbook queue walking with adverse selection.
 3. **Adaptive Machine Learning Strategy:** Online Recursive Least Squares (RLS) and Bayesian Thompson Sampling with automated drift rollbacks.
 4. **Multimodal Macro Fusion:** Ingests Brent crude, DXY, GIFT Nifty gap, and geopolitical news embeddings.
 5. **Real-Time Mobile-First HUD:** Low-latency (<250ms) Starlette ASGI and WebSocket telemetry interface.
 
 ---
 
-## 2. What to Audit: The 7 Core Invariants
+## 2. What to Audit: The 8 Core Invariants
 
 ```mermaid
 flowchart TD
-    subgraph CoreAuditPillars [The 7 Compliance Invariants]
+    subgraph CoreAuditPillars [The 8 Compliance Invariants]
         direction TB
         INV1["1. Pre-Trade Risk Gates<br/>₹3,000 Cap | ₹2,000 Floor | ₹150 Stop"]
         INV2["2. 1,500ms Staleness Guard<br/>Fail-Closed Stale Tick Rejection"]
-        INV3["3. Microstructure Slippage<br/>FIFO Depth Walking & Adverse Drag"]
-        INV4["4. Indian Statutory Taxes<br/>~₹52.02 Breakeven Hurdle Engine"]
+        INV3["3. Microstructure Slippage<br/>FIFO Depth Walking & True Peak-to-Trough Drawdown"]
+        INV4["4. Indian Statutory Cost Convexity<br/>Tax Engine & Screener Bound Protection"]
         INV5["5. Model Drift & Rollbacks<br/>3-Loss Circuit Breaker & Choppy Pause"]
         INV6["6. SEBI & Live Trading Lock<br/>Compile-Time Lock on Live Broker"]
         INV7["7. Zero Secret Leakage<br/>Stateless HUD & Git Isolation"]
+        INV8["8. Concurrency & Race Safety<br/>Atomic Execution Gate & Zero Torn Reads"]
     end
 ```
 
@@ -66,9 +67,9 @@ flowchart TD
   $$\text{Peak}_t = \max_{0 \le \tau \le t}(\text{Equity}_\tau)$$
   $$\text{Drawdown}_t = \frac{\text{Peak}_t - \text{Equity}_t}{\text{Peak}_t} \times 100$$
   $$\text{MaxDrawdown}_T = \max_{0 \le t \le T}(\text{Drawdown}_t)$$
-  The maximum drawdown must reflect the true historical peak-to-trough decline across all daily equity points, and must NEVER be cleared or overwritten when equity reaches subsequent new highs.
+  The maximum drawdown reflects the true historical peak-to-trough decline across all daily equity points, and is NEVER cleared or overwritten when equity reaches subsequent new highs.
 
-### Invariant 4: Statutory Transaction Cost Schedule (`costs/transaction_costs.py`)
+### Invariant 4: Statutory Transaction Cost Schedule & Cost Convexity (`costs/transaction_costs.py`, `analytics/strike_screener.py`)
 * The system models exact Indian 2026 derivative regulatory taxes:
   - **Securities Transaction Tax (STT):** 0.1% on exercise value or 0.0625% on option premium turnover (sell side).
   - **Brokerage:** ₹20.00 flat per executed order.
@@ -76,7 +77,8 @@ flowchart TD
   - **SEBI Turnover Charges:** ₹10 per crore (0.0001%).
   - **Goods and Services Tax (GST):** 18% on (Brokerage + Exchange Charges + SEBI charges).
   - **Stamp Duty:** 0.003% on buy side.
-  - **Combined Round-Trip Hurdle:** $\approx ₹52.02$ per lot (~0.80 points minimum move required just to break even).
+* **Statutory Friction Convexity:** Flat brokerage creates significant cost convexity on cheap options. While round-trip friction at the ₹38.00 baseline is ₹52.66 (2.13% of outlay), friction at ₹2.00 is ₹47.49 (36.53% of outlay!).
+* **Screener Bound Protection:** To protect micro-capital accounts from deep-OTM friction traps, `StrikeScreener` strictly enforces `min_premium_inr = 10.00` and `max_premium_inr = 38.00`, confining all executions to a high-efficiency corridor (friction drag between 2.13% and 7.50%).
 
 ### Invariant 5: Model Drift Guard & Regime Discipline (`ml/drift_guard.py`, `ml/learner.py`)
 * **Overfitting / Drift Guard:** If the strategy experiences 3 consecutive losses, parameter weights automatically roll back to the previous stable checkpoint.
@@ -88,6 +90,11 @@ flowchart TD
 ### Invariant 7: Zero Secret Leakage & Telemetry Transparency (`broker/`, `dashboard/`, `serq`)
 * Zero credentials, broker API keys, or private keys committed to git or exposed to the browser HUD.
 * Uncalibrated Bayesian prior defaults (such as a 50.0% prior win rate or 0.150 pts baseline slippage) are explicitly labeled as `N/A (Prior Default — 0 samples)` until live orders are recorded.
+
+### Invariant 8: Concurrency & Race Condition Safety (`risk/kill_switch.py`, `execution/paper_broker.py`, `database/db.py`)
+* **Thread-Safe Kill Switch:** Internal mutations and status queries are protected by `threading.RLock`, guaranteeing zero torn reads under multi-threaded contention.
+* **Atomic Execution Gate:** Order validation, pre-trade risk checks, and portfolio cash/position mutation are bound by `kill_switch.atomic_execution_gate()`. This strictly eliminates the check-then-act race window, guaranteeing 0 orders can be approved or filled when the kill switch is engaged.
+* **SQLite WAL Write Serialization:** Background database writes are serialized via an internal write lock, eliminating `database is locked` operational errors under concurrent multi-threaded workloads.
 
 ---
 
@@ -102,12 +109,12 @@ pip install -r requirements.txt
 ```
 
 ### Audit Step 1: Execute Full Test Suite
-Verifies that all 115 unit and integration tests across 20 test modules pass:
+Verifies that all 119 unit, integration, and concurrency tests across 21 test modules pass:
 ```bash
 ./serq test
 # Alternatively: python3 -m pytest tests/ -v
 ```
-**Expected Audit Result:** `115 passed (100% pass rate)`.
+**Expected Audit Result:** `119 passed (100% pass rate)`.
 
 ---
 
@@ -223,11 +230,26 @@ Validates background server startup, WebSocket streaming, and graceful shutdown:
 
 ---
 
+### Audit Step 9: Verify Concurrency & Race Condition Safety
+Audits multi-threaded kill-switch toggling, atomic execution gates, and SQLite WAL write serialization:
+```bash
+python3 -m pytest tests/test_concurrency_race.py -v
+```
+**Expected Audit Result:**
+- `test_kill_switch_torn_read_and_concurrency`: 0 torn reads across thousands of iterations under continuous engage/reset cycling.
+- `test_atomic_execution_gate_eliminates_check_then_act_race`: 0 check-then-act race violations; 0 orders approved or filled while kill switch is engaged.
+- `test_concurrent_sqlite_wal_writes`: 500 concurrent writes across 10 threads completed with 0 errors.
+- `test_paper_broker_concurrent_kill_switch_safety`: 0 broker orders filled while kill switch is engaged.
+- **Verdict:** `4 passed in ~20s (100% pass rate)`.
+
+---
+
 ## 4. Auditor Evidence Log Locations
 
 | Component | Audit Artifact / Log File | Description |
 | :--- | :--- | :--- |
-| **Test Results** | `.pytest_cache/` | Complete Pytest execution state |
+| **Independent Systems Audit** | `research/independent_empirical_audit.md` | Full empirical audit evaluating SerQ |
+| **Test Results** | `.pytest_cache/` | Complete Pytest execution state (119 tests) |
 | **Daemon Server Logs** | `logs/serq.log` | Raw application and WebSocket logs |
 | **Audit Trail DB** | `database/arbitrage.db` | SQLite WAL ledger of all orders & transitions |
 | **Executive Charter** | `cto/master_executive_charter.md` | Formal CTO Governance & SEBI Charter |
@@ -251,7 +273,7 @@ This worksheet is provided for independent auditors to record their findings upo
 ├────────────────────────────────────────────────────────────────────────────┤
 │ INVARIANT VERIFICATION CHECKLIST:                                          │
 │                                                                            │
-│ [ ] Step 1: Full Test Suite (115 tests passing, 0 failures)                │
+│ [ ] Step 1: Full Test Suite (119 tests passing, 0 failures)                │
 │ [ ] Step 2: Adversarial Stress & Floor Breach (Kill switch engaged)        │
 │ [ ] Step 3: Model Drift Telemetry (Clear labeling of priors)               │
 │ [ ] Step 4: Multi-Path Monte Carlo / Peak-to-Trough Drawdown Preserved     │
@@ -259,6 +281,7 @@ This worksheet is provided for independent auditors to record their findings upo
 │ [ ] Step 6: Black-Scholes Greeks & Strike Screener (≤ ₹38 Cap)             │
 │ [ ] Step 7: Zero Credential Leakage Scan (0 leaks)                         │
 │ [ ] Step 8: Daemon Lifecyle & WebSocket Feed (Clean shutdown)              │
+│ [ ] Step 9: Concurrency & Race Safety (0 torn reads, 0 check-then-act)     │
 ├────────────────────────────────────────────────────────────────────────────┤
 │ Auditor Signature:   ____________________________________________________  │
 │ Certification Status: [ ] APPROVED   [ ] DEFICIENCIES NOTED   [ ] REJECTED │

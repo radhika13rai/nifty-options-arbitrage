@@ -7,6 +7,7 @@ import logging
 from typing import Optional
 from broker.interface import BrokerOrderRequest, BrokerOrderResponse
 from execution.paper_broker import paper_broker
+from risk.kill_switch import kill_switch
 from strategies.base import TradingSignal
 
 logger = logging.getLogger("OMS")
@@ -23,6 +24,12 @@ class OrderManager:
         if not signal.is_capital_feasible:
             logger.info(
                 f"Signal {signal.signal_id} on {signal.symbol} rejected: {signal.infeasibility_reason}"
+            )
+            return None
+
+        if kill_switch.is_engaged:
+            logger.warning(
+                f"Signal {signal.signal_id} on {signal.symbol} rejected: Kill switch active ({kill_switch.get_status().reason})"
             )
             return None
 

@@ -403,7 +403,32 @@ Consider a standard 1-lot trade ($Q = 65$ units) entered at $P_{\text{entry}} = 
 | ₹40.00 | ₹42.00 | +2.00 pts | +₹130.00 | ₹25.07 | ₹27.76 | **₹52.83** | **+₹77.17** | 40.6% |
 | ₹100.00| ₹105.00| +5.00 pts | +₹325.00 | ₹26.71 | ₹32.61 | **₹59.32** | **+₹265.68** | 18.3% |
 
-### 5.3 Verification of Algorithmic Factoring Across Codebase
+### 5.3 Statutory Friction Convexity & Empirical Hurdle Distribution
+
+An independent empirical audit conducted on commit `0037f56` ([`research/independent_empirical_audit.md`](file:///root/nifty-options-arbitrage/research/independent_empirical_audit.md)) executed a 100-point statutory cost sweep across option premiums ranging from ₹2.00 to ₹150.50 (1 lot = 65 units). The results reveal significant structural non-linearity in transaction drag:
+
+| Option Premium (₹) | Total One-Leg Turnover (₹) | Total Round-Trip Friction (₹) | Points Breakeven Hurdle | Friction as % of Capital Deployed |
+| :---: | :---: | :---: | :---: | :---: |
+| **₹2.00** | ₹130.00 | ₹47.49 | 0.73 pts | **36.53%** |
+| **₹10.00** | ₹650.00 | ₹48.74 | 0.75 pts | **7.50%** |
+| **₹17.00** | ₹1,105.00 | ₹49.63 | 0.76 pts | **4.49%** |
+| **₹25.00** | ₹1,625.00 | ₹50.72 | 0.78 pts | **3.12%** |
+| **₹32.00** | ₹2,080.00 | ₹51.80 | 0.80 pts | **2.49%** |
+| **₹38.00** *(Baseline Anchor)* | ₹2,470.00 | ₹52.66 | 0.81 pts | **2.13%** |
+| **₹47.00** | ₹3,055.00 | ₹53.97 | 0.83 pts | **1.77%** |
+| **₹77.00** | ₹5,005.00 | ₹58.27 | 0.90 pts | **1.16%** |
+| **₹122.00** | ₹7,930.00 | ₹64.77 | 1.00 pts | **0.82%** |
+| **₹150.50** *(Sweep Max)* | ₹9,782.50 | ₹68.83 | 1.06 pts | **0.70%** |
+
+#### Quantitative Insights on Cost Convexity:
+1. **The Headline "~₹52.02 / 0.80 pts" Hurdle is an Anchor, Not a Universal Constant:** Across the 100-point sweep, round-trip statutory friction ranged from ₹47.49 to ₹68.83 (a 44.9% spread), and the points hurdle ranged from 0.73 to 1.06 points. At the system's baseline reference of ₹38.00, friction is ₹52.66 / 0.81 points, matching theoretical models.
+2. **Extreme Cost Convexity on Deep OTM Options (< ₹10.00):** Because flat brokerage (₹20.00/order) is fixed regardless of premium, statutory friction does not scale down proportionally on cheap options. At ₹2.00 premium, a round-trip costs ₹47.49 on a ₹130.00 outlay—a catastrophic **36.53% immediate frictional drag**.
+3. **Architectural Defense in Strike Screener:** To prevent retail micro-capital accounts from falling into this deep-OTM friction trap, [`analytics/strike_screener.py`](file:///root/nifty-options-arbitrage/analytics/strike_screener.py#L61-L62) strictly enforces:
+   - `min_premium_inr = 10.00`: Caps friction drag at $\le 7.50\%$ of deployed capital.
+   - `max_premium_inr = 38.00`: Keeps capital outlay $\le ₹2,470.00$, leaving $> ₹530.00$ cash headroom under the ₹3,000 ceiling.
+   This guarantees that all executed trades operate exclusively in the high-efficiency corridor (drag between 2.13% and 7.50%).
+
+### 5.4 Verification of Algorithmic Factoring Across Codebase
 
 Our code audit evaluated whether statutory friction is mathematically factored into predictive targets:
 

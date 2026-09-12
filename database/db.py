@@ -7,6 +7,7 @@ and provides auditable persistence for all trading operations.
 import asyncio
 import json
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -21,9 +22,10 @@ class DatabaseManager:
     def __init__(self, db_path: Path = DB_PATH):
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._write_lock = threading.Lock()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), timeout=10.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
         # WAL mode enables concurrent readers without locking writer
         conn.execute("PRAGMA journal_mode = WAL;")
@@ -40,14 +42,16 @@ class DatabaseManager:
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_sql = f.read()
 
-        with self._get_connection() as conn:
-            conn.executescript(schema_sql)
-            conn.commit()
+        with self._write_lock:
+            with self._get_connection() as conn:
+                conn.executescript(schema_sql)
+                conn.commit()
 
     def execute_write(self, query: str, params: tuple = ()) -> None:
-        with self._get_connection() as conn:
-            conn.execute(query, params)
-            conn.commit()
+        with self._write_lock:
+            with self._get_connection() as conn:
+                conn.execute(query, params)
+                conn.commit()
 
     def execute_query(self, query: str, params: tuple = ()) -> list[dict]:
         with self._get_connection() as conn:

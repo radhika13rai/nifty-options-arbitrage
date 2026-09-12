@@ -18,6 +18,7 @@ from market_data.orderbook import orderbook_manager
 from costs.transaction_costs import cost_engine
 from costs.slippage import slippage_model
 from risk.engine import risk_engine, PreTradeOrderRequest
+from risk.kill_switch import kill_switch
 from portfolio.positions import position_tracker
 from portfolio.pnl import pnl_manager
 from database.db import db_manager
@@ -92,28 +93,57 @@ class PaperBroker(AbstractBrokerClient):
             )
             simulated_fill_price = slippage_res.simulated_fill_price
 
-        # 3. Pre-trade Risk Check Gate
-        pnl_report = pnl_manager.generate_report()
-        daily_loss = max(0.0, -pnl_report.gross_realized_pnl + pnl_report.total_friction_inr)
+        # 3. Pre-trade Risk Check Gate & Atomic Portfolio Mutation
+        rejection_reason = None
+        cost_breakdown = None
 
-        risk_req = PreTradeOrderRequest(
-            symbol=request.symbol,
-            side=request.side,
-            order_type=request.order_type,
-            price=simulated_fill_price,
-            quantity=request.quantity
-        )
-        risk_result = risk_engine.validate_order(
-            order=risk_req,
-            current_cash_inr=pnl_manager.current_cash,
-            daily_realized_loss_inr=daily_loss
-        )
+        with kill_switch.atomic_execution_gate():
+            if kill_switch.is_engaged:
+                rejection_reason = f"Rejected: Emergency kill switch is active ({kill_switch.get_status().reason})"
+            else:
+                pnl_report = pnl_manager.generate_report()
+                daily_loss = max(0.0, -pnl_report.gross_realized_pnl + pnl_report.total_friction_inr)
 
-        if not risk_result.passed:
-            logger.warning(f"Order {order_id} blocked by Risk Engine: {risk_result.reason}")
+                risk_req = PreTradeOrderRequest(
+                    symbol=request.symbol,
+                    side=request.side,
+                    order_type=request.order_type,
+                    price=simulated_fill_price,
+                    quantity=request.quantity
+                )
+                risk_result = risk_engine.validate_order(
+                    order=risk_req,
+                    current_cash_inr=pnl_manager.current_cash,
+                    daily_realized_loss_inr=daily_loss
+                )
+
+                if not risk_result.passed:
+                    rejection_reason = risk_result.reason
+                elif kill_switch.is_engaged:
+                    rejection_reason = f"Rejected: Emergency kill switch is active ({kill_switch.get_status().reason})"
+                else:
+                    # 4. Calculate exact statutory costs
+                    cost_breakdown = cost_engine.calculate_order_costs(
+                        side=request.side,
+                        price=simulated_fill_price,
+                        quantity=request.quantity
+                    )
+
+                    # 5. Apply fill to portfolio & cash atomically
+                    pnl_manager.adjust_cash(cost_breakdown.net_cash_flow, cost_breakdown.total_costs)
+                    position_tracker.apply_fill(
+                        symbol=request.symbol,
+                        side=request.side,
+                        price=simulated_fill_price,
+                        quantity=request.quantity,
+                        order_costs=cost_breakdown.total_costs
+                    )
+
+        if rejection_reason is not None:
+            logger.warning(f"Order {order_id} blocked: {rejection_reason}")
             await db_manager.record_risk_event(
                 event_type="ORDER_BLOCKED",
-                reason=risk_result.reason,
+                reason=rejection_reason,
                 blocked_payload={"order_id": order_id, "symbol": request.symbol, "side": request.side, "quantity": request.quantity}
             )
             await db_manager.record_order(
@@ -126,7 +156,7 @@ class PaperBroker(AbstractBrokerClient):
                 requested_price=request.price,
                 fill_price=None,
                 status="REJECTED",
-                rejection_reason=risk_result.reason
+                rejection_reason=rejection_reason
             )
             return BrokerOrderResponse(
                 order_id=order_id,
@@ -137,25 +167,8 @@ class PaperBroker(AbstractBrokerClient):
                 fill_price=0.0,
                 filled_quantity=0,
                 total_charges_inr=0.0,
-                rejection_reason=risk_result.reason
+                rejection_reason=rejection_reason
             )
-
-        # 4. Calculate exact statutory costs
-        cost_breakdown = cost_engine.calculate_order_costs(
-            side=request.side,
-            price=simulated_fill_price,
-            quantity=request.quantity
-        )
-
-        # 5. Apply fill to portfolio & cash
-        pnl_manager.adjust_cash(cost_breakdown.net_cash_flow, cost_breakdown.total_costs)
-        position_tracker.apply_fill(
-            symbol=request.symbol,
-            side=request.side,
-            price=simulated_fill_price,
-            quantity=request.quantity,
-            order_costs=cost_breakdown.total_costs
-        )
 
         # 6. Persist order and trade into SQLite database
         trade_id = f"TRD_{int(time.time()*1000)}_{str(uuid.uuid4())[:4]}"
