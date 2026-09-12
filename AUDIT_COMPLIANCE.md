@@ -1,25 +1,27 @@
-# INSTITUTIONAL AUDIT COMPLIANCE & VERIFICATION SPECIFICATION
+# SERQ QUANTITATIVE & RISK COMPLIANCE SPECIFICATION
+## Technical Verification Guide & Auditor Test Harness
 
-**Document Version:** `1.0.0-COMPLIANCE`  
+**Document Version:** `1.1.0-REVISED`  
 **System Target:** SerQ Institutional NIFTY Options Arbitrage & Real-Time Trading Engine  
 **Repository Location:** `/root/nifty-options-arbitrage`  
-**Git Branch:** `main` | **Commit Baseline:** `f740830`  
-**Regulatory Framework:** 
-* SEBI Circular `SEBI/HO/MRD/DP/CIR/P/2018/62` (Algorithmic Trading & Risk Testing)
-* SEBI Circular `SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/0000013` (Retail Algorithmic Framework)
-* NSE Circular `NSE/FAOP/70616` (NIFTY 50 Options Lot Size = 65)  
-**Classification:** Analytical Research Station & Paper Trading Daemon (V1/V2) — **Live Execution Sealed**
+**GitHub Remote:** `https://github.com/radhika13rai/nifty-options-arbitrage`  
+**Git Branch:** `main`  
+**Supported Runtime:** Python >= 3.10 (Tested on Python 3.11, 3.12, 3.13, 3.14)  
+**Dependencies:** Pure-Python (Starlette, Uvicorn, WebSockets, HTTPX, AnyIO, Pytest) — zero compiled C/C++ wheels.  
+**Classification:** Analytical Research Station & Paper Trading Daemon (Paper V1/V2) — **Live Broker Permanently Locked**
 
 ---
 
-## 1. Executive Overview & Auditor Mandate
+> [!IMPORTANT]
+> **Independent Audit Notice:** This specification is an internal technical test harness and verification guide provided for external inspection. It does not constitute an independent third-party certification. Independent auditors must clone the repository in an isolated clean-room environment and execute the test procedures described herein.
 
-This specification provides a standardized, reproducible compliance protocol for independent auditors, quant engineers, risk managers, and regulatory officers to inspect and verify the **SerQ NIFTY Options Arbitrage & Trading Engine**.
+---
 
-### 1.1 What This System Is
+## 1. System Architecture & Objectives
+
 SerQ is an asynchronous, event-driven trading workstation engineered specifically for **single-lot micro-capital options trading** under an uncompromising **₹3,000 account capital constraint**. It combines:
-1. **Deterministic Micro-Capital Risk Engine:** Mathematical pre-trade validation strictly preventing over-leveraged multi-leg SPAN exposure and enforcing a hard ₹2,000 capital floor.
-2. **Microstructure Slippage & Fee Engine:** Models real-world Indian statutory taxes (~₹52.02/lot round-trip) and Level-2 orderbook queue walking.
+1. **Deterministic Micro-Capital Pre-Trade Risk Engine:** Mathematical validation enforcing a hard ₹2,000 capital floor, a ₹150 stop loss, and single-leg options outlays ($\le ₹38.00$).
+2. **Microstructure Slippage & Fee Engine:** Models real-world Indian statutory taxes (~₹52.02/lot round-trip) and Level-2 orderbook queue walking with adverse selection.
 3. **Adaptive Machine Learning Strategy:** Online Recursive Least Squares (RLS) and Bayesian Thompson Sampling with automated drift rollbacks.
 4. **Multimodal Macro Fusion:** Ingests Brent crude, DXY, GIFT Nifty gap, and geopolitical news embeddings.
 5. **Real-Time Mobile-First HUD:** Low-latency (<250ms) Starlette ASGI and WebSocket telemetry interface.
@@ -27,8 +29,6 @@ SerQ is an asynchronous, event-driven trading workstation engineered specificall
 ---
 
 ## 2. What to Audit: The 7 Core Invariants
-
-An auditor must inspect seven critical dimensions to certify system compliance:
 
 ```mermaid
 flowchart TD
@@ -45,26 +45,31 @@ flowchart TD
 ```
 
 ### Invariant 1: Pre-Trade Risk Controls (`risk/engine.py`, `risk/kill_switch.py`)
-* **Capital Floor:** Cash balance must never breach ₹2,000.00. If cash $< ₹2,000$, all further orders must be immediately blocked.
-* **Max Premium Cap:** Options premium must be $\le ₹38.00$ (max capital outlay $\le ₹2,470$ for 65 units), ensuring $> ₹530$ liquid cash headroom.
+* **Capital Floor Enforcement:** Cash balance must never breach ₹2,000.00. If cash $< ₹2,000$, all further orders must be immediately blocked.
+* **Max Premium Cap:** Option entry premium must be $\le ₹38.00$ (max capital outlay $\le ₹2,470$ for 65 units), ensuring $> ₹530$ liquid cash headroom.
 * **Per-Trade Stop Loss:** Hard-capped at ₹150.00 (~2.30 points).
 * **Max Daily Loss:** Hard-capped at ₹300.00.
 * **Lot Size Invariant:** All orders must specify exactly 65 units (1 lot). Any order with quantity $\ne 65$ or lots $> 1$ must be rejected.
-* **Latching Kill Switch:** Engaging the kill switch must transition state in $< 1\,\mu\text{s}$ and latch permanently until an explicit `CONFIRM_RESET` cryptographic token is supplied by the operator.
+* **Latching Kill Switch & Reset Protocol:** Engaging the kill switch transitions state in $< 1\,\mu\text{s}$ and latches permanently. Resetting requires HMAC-SHA256 signature verification (`hmac.compare_digest`) or an authorized confirmation token (`CONFIRM_RESET`), evaluated in constant-time to eliminate timing side-channel vulnerabilities.
 
 ### Invariant 2: Fail-Closed Staleness Guard (`risk/stale_data_guard.py`)
 * Market ticks with latency $> 1,500\,\text{ms}$ or missing orderbooks (`age_ms = inf`) must be dropped immediately. Orders relying on stale ticks must be rejected.
 
-### Invariant 3: Realistic Microstructure Slippage (`costs/slippage.py`, `execution/paper_broker.py`)
+### Invariant 3: Realistic Microstructure Slippage & Drawdown Accounting (`costs/slippage.py`, `portfolio/pnl.py`, `simulation/soak_runner.py`)
 * Fills must never be granted unrealistically at Mid-Price or LTP.
 * The paper broker must simulate:
   1. FIFO Queue Priority (60% depth ahead of retail orders).
   2. Level-2 orderbook depth walking (VWAP execution).
   3. Adverse selection penalty in fast-moving regimes.
   4. Book exhaustion penalty of 1.50 points on depleted depth.
+* **Peak-to-Trough Drawdown Accounting:**
+  $$\text{Peak}_t = \max_{0 \le \tau \le t}(\text{Equity}_\tau)$$
+  $$\text{Drawdown}_t = \frac{\text{Peak}_t - \text{Equity}_t}{\text{Peak}_t} \times 100$$
+  $$\text{MaxDrawdown}_T = \max_{0 \le t \le T}(\text{Drawdown}_t)$$
+  The maximum drawdown must reflect the true historical peak-to-trough decline across all daily equity points, and must NEVER be cleared or overwritten when equity reaches subsequent new highs.
 
 ### Invariant 4: Statutory Transaction Cost Schedule (`costs/transaction_costs.py`)
-* The system must model exact Indian 2026 derivative regulatory taxes:
+* The system models exact Indian 2026 derivative regulatory taxes:
   - **Securities Transaction Tax (STT):** 0.1% on exercise value or 0.0625% on option premium turnover (sell side).
   - **Brokerage:** ₹20.00 flat per executed order.
   - **Exchange Turnover Charges:** 0.0505% on premium turnover.
@@ -74,32 +79,35 @@ flowchart TD
   - **Combined Round-Trip Hurdle:** $\approx ₹52.02$ per lot (~0.80 points minimum move required just to break even).
 
 ### Invariant 5: Model Drift Guard & Regime Discipline (`ml/drift_guard.py`, `ml/learner.py`)
-* **Overfitting / Drift Guard:** If the strategy experiences 3 consecutive losses, parameter weights must automatically roll back to the previous stable checkpoint.
-* **Choppy Market Stand-Down:** In `CHOPPY_CONSOLIDATION` regimes, the learner must stand down (0 trades) to avoid theta decay traps.
+* **Overfitting / Drift Guard:** If the strategy experiences 3 consecutive losses, parameter weights automatically roll back to the previous stable checkpoint.
+* **Choppy Market Stand-Down:** In `CHOPPY_CONSOLIDATION` regimes, the learner stands down (0 trades) to avoid theta decay traps.
 
 ### Invariant 6: Permanent Live Trading Lock (`execution/live_broker_disabled.py`)
-* Live execution pathways must raise compile-time and runtime `RuntimeError` exceptions (`LiveTradingPermanentlyDisabledError`) to prevent accidental live execution.
+* Live execution pathways raise compile-time and runtime `RuntimeError` exceptions (`LiveTradingPermanentlyDisabledError`) to prevent accidental live execution.
 
-### Invariant 7: Zero Secret Leakage & Architecture Isolation (`broker/`, `dashboard/`)
-* Zero credentials, broker API keys, or TOTP seeds committed to git or exposed to the browser HUD.
+### Invariant 7: Zero Secret Leakage & Telemetry Transparency (`broker/`, `dashboard/`, `serq`)
+* Zero credentials, broker API keys, or private keys committed to git or exposed to the browser HUD.
+* Uncalibrated Bayesian prior defaults (such as a 50.0% prior win rate or 0.150 pts baseline slippage) are explicitly labeled as `N/A (Prior Default — 0 samples)` until live orders are recorded.
 
 ---
 
 ## 3. How to Audit: Step-by-Step Auditor's Playbook
 
-All verification steps are self-contained and run via the institutional `./serq` CLI within `/root/nifty-options-arbitrage`.
+All verification steps are self-contained and run via the unified `./serq` CLI:
 
 ```bash
-cd /root/nifty-options-arbitrage
+git clone https://github.com/radhika13rai/nifty-options-arbitrage.git
+cd nifty-options-arbitrage
+pip install -r requirements.txt
 ```
 
 ### Audit Step 1: Execute Full Test Suite
-Verifies that all 113 unit and integration tests across 20 test modules pass:
+Verifies that all 115 unit and integration tests across 20 test modules pass:
 ```bash
 ./serq test
 # Alternatively: python3 -m pytest tests/ -v
 ```
-**Expected Audit Result:** `113 passed in ~21s (100% pass rate)`.
+**Expected Audit Result:** `115 passed (100% pass rate)`.
 
 ---
 
@@ -112,32 +120,37 @@ Simulates severe market shocks, false breakouts, and capital floor breaches:
 - Phase 1: 3 consecutive false breakouts trigger `ModelDriftGuard` rollback.
 - Phase 2: Cash simulated below ₹2,000 floor immediately engages latching Kill Switch.
 - Phase 3: 100% of subsequent order attempts hard-blocked with `REJECTED`.
-- Phase 4: Cryptographic token verification validates reset protocol.
+- Phase 4: HMAC-SHA256 signature verification validates reset protocol.
 - **Verdict:** `PASSED (100% INVARIANTS HELD)`.
 
 ---
 
-### Audit Step 3: Inspect AI Model Drift & Rolling Health
+### Audit Step 3: Inspect AI Model Drift & Telemetry
 Verifies rolling win rate, Sharpe ratio, and consecutive loss counters:
 ```bash
 ./serq drift
 ```
 **Expected Audit Result:**
-- `Drift Status: ● HEALTHY`
-- `Guard Invariant: Zero statistical drift detected`
+- Uncalibrated priors labeled `N/A (Prior Default — 0 trades analyzed)`.
+- `Guard Invariant: Zero statistical drift detected`.
 
 ---
 
-### Audit Step 4: Run Continuous Paper Soak Simulation
-Executes multi-day walk-forward market simulations to audit regime switching and PnL persistence:
+### Audit Step 4: Run Multi-Path Monte Carlo Stress Analysis
+Auditors should test multi-path stochastic simulations across independent random seeds rather than relying on a single deterministic seed:
 ```bash
-./serq soak 5 0.01
+# Run 5 independent paths of 10 days each
+./serq monte-carlo 5 10
+
+# Run a single stochastic soak test with random seed
+./serq soak 20 0.01 random
+
+# Run reproducible deterministic regression with specific seed
+./serq soak 20 0.01 42
 ```
 **Expected Audit Result:**
-- High-volatility / trending days capture breakouts.
-- Choppy consolidation days stand down (0 trades executed).
-- Ending cash strictly $> ₹2,000.00$.
-- `Capital Floor OK: True`.
+- Peak-to-trough max drawdown is preserved even if the final day closes at a new high.
+- Capital floor is preserved ($> ₹2,000.00$) across all paths.
 
 ---
 
@@ -147,6 +160,7 @@ Inspects queue simulation and execution drag telemetry:
 ./serq slippage
 ```
 **Expected Audit Result:**
+- Uncalibrated state labeled `N/A (Config Prior — 0 fills analyzed)`.
 - FIFO queue priority: 60% depth ahead.
 - Depth walking: Enabled.
 - Adverse selection drag: Enabled.
@@ -178,14 +192,7 @@ patterns = [
     r'ey[a-zA-Z0-9_\-]{20,}\.[a-zA-Z0-9_\-]{20,}',
     r'-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----'
 ]
-leaks = 0
-for root, dirs, files in os.walk('.'):
-    if any(p in root for p in ['.git', '.pytest_cache', '__pycache__']): continue
-    for f in files:
-        if f.endswith(('.py', '.html', '.js', '.sh', '.json', '.sql', '.yaml')):
-            content = open(os.path.join(root, f), errors='ignore').read()
-            for p in patterns:
-                if re.search(p, content): leaks += 1
+leaks = sum(1 for root, _, files in os.walk('.') if not any(x in root for x in ['.git', '__pycache__', '.pytest_cache']) for f in files if f.endswith(('.py','.html','.js','.sh','.json','.sql','.yaml')) for p in patterns if re.search(p, open(os.path.join(root, f), errors='ignore').read()))
 print(f'AUDIT SCAN VERDICT: {leaks} leaks detected.')
 "
 ```
@@ -229,24 +236,31 @@ Validates background server startup, WebSocket streaming, and graceful shutdown:
 
 ---
 
-## 5. Auditor Sign-Off & Verification Verdict
+## 5. Auditor Verification Worksheet
+
+This worksheet is provided for independent auditors to record their findings upon completing the audit protocol:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                    SERQ AUDIT VERIFICATION CERTIFICATE                     │
+│                    SERQ AUDITOR VERIFICATION WORKSHEET                     │
 ├────────────────────────────────────────────────────────────────────────────┤
-│ Target Repository:  /root/nifty-options-arbitrage                          │
-│ Audit Specification: AUDIT_COMPLIANCE.md (v1.0.0)                         │
-│ Git Commit Hash:    f740830                                                │
-│ Python Environment: Pure-Python 3.14.6 (No External C Wheels)              │
-│ Status:             100% INVARIANTS SATISFIED & VERIFIED                   │
+│ Auditor Name / Firm: ____________________________________________________  │
+│ Audit Date:          ____________________________________________________  │
+│ Target Commit Hash:  ____________________________________________________  │
+│ Python Environment:  ____________________________________________________  │
+├────────────────────────────────────────────────────────────────────────────┤
+│ INVARIANT VERIFICATION CHECKLIST:                                          │
 │                                                                            │
-│ [X] Pre-Trade Risk Gates (₹3,000 Cap, ₹2,000 Floor, ₹150 Stop)            │
-│ [X] Fail-Closed Staleness Guard (1,500ms max latency)                     │
-│ [X] Statutory Transaction Costs (~₹52.02 Breakeven Hurdle)                 │
-│ [X] Microstructure Slippage & Queue Walk (VWAP + Adverse Selection)        │
-│ [X] Model Drift Guard & 3-Loss Circuit Breaker                             │
-│ [X] Permanent Compile-Time Live Trading Lock                               │
-│ [X] Zero Credential Leakage                                                │
+│ [ ] Step 1: Full Test Suite (115 tests passing, 0 failures)                │
+│ [ ] Step 2: Adversarial Stress & Floor Breach (Kill switch engaged)        │
+│ [ ] Step 3: Model Drift Telemetry (Clear labeling of priors)               │
+│ [ ] Step 4: Multi-Path Monte Carlo / Peak-to-Trough Drawdown Preserved     │
+│ [ ] Step 5: Microstructure Slippage & FIFO Queue Modeling                  │
+│ [ ] Step 6: Black-Scholes Greeks & Strike Screener (≤ ₹38 Cap)             │
+│ [ ] Step 7: Zero Credential Leakage Scan (0 leaks)                         │
+│ [ ] Step 8: Daemon Lifecyle & WebSocket Feed (Clean shutdown)              │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Auditor Signature:   ____________________________________________________  │
+│ Certification Status: [ ] APPROVED   [ ] DEFICIENCIES NOTED   [ ] REJECTED │
 └────────────────────────────────────────────────────────────────────────────┘
 ```

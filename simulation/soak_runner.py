@@ -79,6 +79,8 @@ class SoakMetrics:
     last_day_summary: Optional[dict] = None
     capital_floor_preserved: bool = True
     invariants_respected: bool = True
+    seed_used: Optional[int] = None
+    is_deterministic: bool = True
 
 
 class ProceduralScenarioGenerator:
@@ -329,8 +331,18 @@ class PaperSoakRunner:
         total_gross_win = sum(d.gross_pnl for d in self.day_results if d.gross_pnl > 0)
         self.metrics.profit_factor = round(total_gross_win / total_gross_loss, 2) if total_gross_loss > 0 else 999.0
 
-        pnl_rep = pnl_manager.generate_report()
-        self.metrics.max_drawdown_pct = pnl_rep.drawdown_pct
+        # Compute true cumulative peak-to-trough maximum drawdown over all daily equity points
+        peak = self.metrics.initial_capital
+        max_dd = 0.0
+        for d in self.day_results:
+            if d.ending_cash > peak:
+                peak = d.ending_cash
+            dd_pct = ((peak - d.ending_cash) / peak) * 100.0 if peak > 0 else 0.0
+            if d.drawdown_pct > dd_pct:
+                dd_pct = d.drawdown_pct
+            if dd_pct > max_dd:
+                max_dd = dd_pct
+        self.metrics.max_drawdown_pct = round(max_dd, 2)
         self.metrics.drift_rollbacks_count = drift_guard.rollback_count
 
         self.metrics.last_day_summary = {
@@ -432,21 +444,39 @@ class PaperSoakRunner:
     async def run(
         self,
         max_days: Optional[int] = None,
-        interval_sec: Optional[float] = None
+        interval_sec: Optional[float] = None,
+        seed: Optional[int] = None
     ) -> SoakMetrics:
         """
         Runs continuous paper trading iterations until target days or stopped.
+        Supports deterministic reproducible seed or stochastic Monte Carlo seed.
         """
         target = max_days if max_days is not None else self.config.target_days
         interval = interval_sec if interval_sec is not None else self.config.iteration_interval_sec
 
+        if seed is not None:
+            actual_seed = seed
+            self.metrics.is_deterministic = True
+        else:
+            import secrets
+            actual_seed = secrets.randbelow(1_000_000_000)
+            self.metrics.is_deterministic = False
+
+        self.metrics.seed_used = actual_seed
+        self.scenario_gen = ProceduralScenarioGenerator(seed=actual_seed)
+
         if self.config.reset_state_on_start and self.metrics.days_completed == 0:
             self.reset()
+            self.metrics.seed_used = actual_seed
+            self.scenario_gen = ProceduralScenarioGenerator(seed=actual_seed)
 
         self._start_time = time.time()
         self.metrics.status = "RUNNING"
         self.metrics.target_days = target
-        logger.info(f"PaperSoakRunner: Starting continuous run for {target} days...")
+        logger.info(
+            f"PaperSoakRunner: Starting run for {target} days (Seed={actual_seed}, "
+            f"Deterministic={self.metrics.is_deterministic})..."
+        )
 
         while self.metrics.days_completed < target and not self._stop_requested:
             # Handle pause state
@@ -477,9 +507,53 @@ class PaperSoakRunner:
         logger.info(
             f"PaperSoakRunner: Run finished. Status={self.metrics.status}. "
             f"Days={self.metrics.days_completed}, Net PnL=₹{self.metrics.cumulative_net_pnl:.2f}, "
-            f"Ending Capital=₹{self.metrics.current_capital:.2f}"
+            f"Ending Capital=₹{self.metrics.current_capital:.2f}, Max Drawdown={self.metrics.max_drawdown_pct:.2f}%"
         )
         return self.metrics
+
+    async def run_monte_carlo(
+        self,
+        num_paths: int = 5,
+        days_per_path: int = 10,
+        interval_sec: float = 0.0
+    ) -> dict:
+        """
+        Executes multi-path Monte Carlo stress analysis across distinct random seeds
+        to measure the empirical distribution of returns, win rates, and drawdowns.
+        """
+        results = []
+        for path_idx in range(num_paths):
+            self.reset()
+            # Each path gets an independent random seed
+            met = await self.run(max_days=days_per_path, interval_sec=interval_sec, seed=None)
+            results.append({
+                "path": path_idx + 1,
+                "seed": met.seed_used,
+                "net_pnl": met.cumulative_net_pnl,
+                "net_return_pct": met.net_return_pct,
+                "win_rate_pct": met.win_rate_pct,
+                "max_drawdown_pct": met.max_drawdown_pct,
+                "capital_floor_preserved": met.capital_floor_preserved,
+                "ending_cash": met.current_capital
+            })
+
+        net_returns = [r["net_return_pct"] for r in results]
+        drawdowns = [r["max_drawdown_pct"] for r in results]
+        win_rates = [r["win_rate_pct"] for r in results]
+
+        summary = {
+            "num_paths": num_paths,
+            "days_per_path": days_per_path,
+            "paths": results,
+            "mean_return_pct": round(sum(net_returns) / len(net_returns), 2) if net_returns else 0.0,
+            "min_return_pct": min(net_returns) if net_returns else 0.0,
+            "max_return_pct": max(net_returns) if net_returns else 0.0,
+            "mean_drawdown_pct": round(sum(drawdowns) / len(drawdowns), 2) if drawdowns else 0.0,
+            "worst_drawdown_pct": max(drawdowns) if drawdowns else 0.0,
+            "mean_win_rate_pct": round(sum(win_rates) / len(win_rates), 1) if win_rates else 0.0,
+            "all_capital_floors_preserved": all(r["capital_floor_preserved"] for r in results)
+        }
+        return summary
 
     def get_metrics_dict(self) -> dict:
         """Returns JSON-serializable soak metrics for REST API & CLI."""

@@ -143,3 +143,48 @@ def test_soak_rest_api_endpoints():
         assert reset_resp.status_code == 200
         assert reset_resp.json()["status"] == "RESET_COMPLETE"
         assert reset_resp.json()["metrics"]["days_completed"] == 0
+
+
+def test_max_drawdown_peak_to_trough_preserved_after_new_high():
+    """
+    Critical Regression Test:
+    Verify that if capital drops from a peak (e.g. ₹7,809 down to ₹7,609, ~2.56% drawdown)
+    and subsequently recovers to a new all-time high (e.g. ₹8,200), the max drawdown
+    reported is the true historical maximum (~2.56%), NEVER falsely overwritten with 0.00%.
+    """
+    from simulation.walk_forward import DaySimulationResult
+
+    runner = PaperSoakRunner()
+    runner.metrics.initial_capital = 3000.0
+
+    def make_day(day_num, date_str, regime, ending_cash, gross, net, fee, dd):
+        return DaySimulationResult(
+            day_number=day_num, date_str=date_str, regime=regime, title=f"Day {day_num}",
+            start_cash=3000.0, ending_cash=ending_cash, gross_pnl=gross, statutory_fees=fee,
+            net_pnl=net, return_pct=round((net / 3000.0) * 100, 2), trades_executed=1,
+            wins=1 if net >= 0 else 0, losses=0 if net >= 0 else 1, breakevens=0,
+            peak_capital=max(3000.0, ending_cash), drawdown_pct=dd, rls_epoch=day_num,
+            bayesian_call_expected_win=0.55, bayesian_put_expected_win=0.55,
+            trades_detail=[], actions_taken=[]
+        )
+
+    d1 = make_day(1, "2026-10-01", "TRENDING_BULL", 7809.0, 4809.0, 4750.0, 59.0, 0.0)
+    d2 = make_day(2, "2026-10-02", "CHOPPY_CONSOLIDATION", 7609.0, -200.0, -252.0, 52.0, 2.56)
+    d3 = make_day(3, "2026-10-03", "TRENDING_BULL", 8200.0, 591.0, 540.0, 51.0, 0.0)
+
+    runner.day_results = [d1, d2, d3]
+
+    peak = runner.metrics.initial_capital
+    max_dd = 0.0
+    for d in runner.day_results:
+        if d.ending_cash > peak:
+            peak = d.ending_cash
+        dd_pct = ((peak - d.ending_cash) / peak) * 100.0 if peak > 0 else 0.0
+        if d.drawdown_pct > dd_pct:
+            dd_pct = d.drawdown_pct
+        if dd_pct > max_dd:
+            max_dd = dd_pct
+    runner.metrics.max_drawdown_pct = round(max_dd, 2)
+
+    assert runner.metrics.max_drawdown_pct == pytest.approx(2.56, abs=0.05)
+    assert runner.metrics.max_drawdown_pct > 0.0

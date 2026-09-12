@@ -262,9 +262,14 @@ status = drift_guard.check_drift()
 print('\033[1m  AI MODEL DRIFT & OVERFITTING TELEMETRY:\033[0m')
 drift_badge = '\033[38;5;197m● DRIFT DETECTED\033[0m' if status.is_drift_detected else '\033[38;5;48m● HEALTHY\033[0m'
 print(f'    Drift Status:       {drift_badge}')
-print(f'    Rolling Win Rate:   {status.rolling_win_rate*100:.1f}% (Target: \033[38;5;48m>= 55.0%\033[0m | Critical Floor: 40.0%)')
-print(f'    Rolling Profit Fact:{status.rolling_profit_factor:.2f}')
-print(f'    Rolling Sharpe:     {status.rolling_sharpe:.2f}')
+if status.total_trades_analyzed == 0:
+    print('    Rolling Win Rate:   \033[38;5;244mN/A (Prior Default: 50.0% — 0 trades analyzed)\033[0m')
+    print('    Rolling Profit Fact:\033[38;5;244mN/A (Prior Default: 1.00 — 0 trades analyzed)\033[0m')
+    print('    Rolling Sharpe:     \033[38;5;244mN/A (Prior Default: 0.00 — 0 trades analyzed)\033[0m')
+else:
+    print(f'    Rolling Win Rate:   {status.rolling_win_rate*100:.1f}% (Target: \033[38;5;48m>= 55.0%\033[0m | Critical Floor: 40.0%)')
+    print(f'    Rolling Profit Fact:{status.rolling_profit_factor:.2f}')
+    print(f'    Rolling Sharpe:     {status.rolling_sharpe:.2f}')
 print(f'    Consecutive Losses: {status.consecutive_losses} (Streak Limit: 3)')
 print(f'    Trades in Window:   {status.total_trades_analyzed}')
 print(f'    Total Rollbacks:    {drift_guard.rollback_count}')
@@ -313,8 +318,12 @@ t = slippage_model.get_telemetry()
 print('\033[1m  MICROSTRUCTURE SLIPPAGE & QUEUE PRIORITY ENGINE (PAPER V2):\033[0m')
 print(f'    FIFO Queue Priority: \033[38;5;51m{t[\"default_queue_priority\"]}\033[0m depth ahead')
 print(f'    Fills Analyzed:     {t[\"total_fills_analyzed\"]}')
-print(f'    Avg Slippage (Pts): \033[38;5;214m{t[\"avg_slippage_points\"]:.3f} pts\033[0m')
-print(f'    Avg Slippage (INR): ₹{t[\"avg_slippage_inr\"]:.2f} per lot (65 units)')
+if t[\"total_fills_analyzed\"] == 0:
+    print('    Avg Slippage (Pts): \033[38;5;244mN/A (Config Prior: 0.150 pts — 0 fills analyzed)\033[0m')
+    print('    Avg Slippage (INR): \033[38;5;244mN/A (Config Prior: ₹9.75/lot — 0 fills analyzed)\033[0m')
+else:
+    print(f'    Avg Slippage (Pts): \033[38;5;214m{t[\"avg_slippage_points\"]:.3f} pts\033[0m')
+    print(f'    Avg Slippage (INR): ₹{t[\"avg_slippage_inr\"]:.2f} per lot (65 units)')
 eff = t.get('avg_effective_spread', 0.30)
 print(f'    Effective Spread:   {eff:.3f} pts')
 print(f'    Depth Walking:      \033[38;5;48mEnabled\033[0m (VWAP partial fills)')
@@ -327,13 +336,27 @@ cmd_soak() {
     banner
     DAYS=${2:-20}
     INTERVAL=${3:-0.05}
+    SEED_ARG=${4:-}
     python3 -c "
 import asyncio
 from simulation.soak_runner import soak_runner
 
+raw_seed = '$SEED_ARG'.strip()
+if raw_seed.lower() in ('', 'none', 'random'):
+    chosen_seed = None
+    seed_desc = 'Random Stochastic (Non-Deterministic)'
+else:
+    try:
+        chosen_seed = int(raw_seed)
+        seed_desc = f'Fixed Seed {chosen_seed} (Deterministic)'
+    except ValueError:
+        chosen_seed = None
+        seed_desc = f'Random Stochastic (Fallback from invalid seed: {raw_seed})'
+
 async def run():
     print(f'\033[1m  AUTOMATED CONTINUOUS PAPER SOAK RUNNER (PAPER V2)\033[0m')
     print(f'  Target: \033[38;5;51m$DAYS trading days\033[0m | Speed: \033[38;5;51m$INTERVAL s/day\033[0m | Capital: \033[38;5;48m₹3,000\033[0m')
+    print(f'  Mode:   \033[38;5;214m{seed_desc}\033[0m')
     print('  --------------------------------------------------')
 
     def on_day(res, met):
@@ -342,10 +365,11 @@ async def run():
         print(f'  Day {met.days_completed:02d}/{met.target_days:02d} | {color}{icon}\033[0m {res.date_str} [{res.regime[:10]:10s}] PnL: {color}₹{res.net_pnl:+7.2f}\033[0m | Cash: ₹{res.ending_cash:.2f} | WR: {met.win_rate_pct:4.1f}%')
 
     soak_runner.register_callback(on_day)
-    metrics = await soak_runner.run(max_days=$DAYS, interval_sec=$INTERVAL)
+    metrics = await soak_runner.run(max_days=$DAYS, interval_sec=$INTERVAL, seed=chosen_seed)
     print('  --------------------------------------------------')
     print('\033[1m  SOAK TEST EXECUTION SCORECARD:\033[0m')
     print(f'    Status:             \033[38;5;48m{metrics.status}\033[0m')
+    print(f'    Seed Used:          \033[38;5;51m{metrics.seed_used}\033[0m (Deterministic: {metrics.is_deterministic})')
     print(f'    Days Completed:     {metrics.days_completed} / {metrics.target_days}')
     print(f'    Ending Capital:     \033[38;5;48m₹{metrics.current_capital:.2f}\033[0m (Floor: ₹2,000.00)')
     print(f'    Cumulative Net PnL: \033[38;5;48m₹{metrics.cumulative_net_pnl:+.2f}\033[0m ({metrics.net_return_pct:+.2f}%)')
@@ -353,11 +377,39 @@ async def run():
     print(f'    Total Trades:       {metrics.total_trades} (W: {metrics.winning_trades}, L: {metrics.losing_trades}, BE: {metrics.breakeven_trades})')
     print(f'    Win Rate:           \033[38;5;51m{metrics.win_rate_pct:.1f}%\033[0m')
     print(f'    Peak Capital:       ₹{metrics.peak_capital:.2f}')
-    print(f'    Max Drawdown:       {metrics.max_drawdown_pct:.2f}%')
+    print(f'    Max Drawdown:       \033[1m{metrics.max_drawdown_pct:.2f}%\033[0m (Peak-to-Trough)')
     print(f'    Drift Interventions:{metrics.drift_rollbacks_count}')
     print(f'    SQLite Checkpoints: {metrics.checkpoints_executed} (DB Size: {metrics.sqlite_db_size_kb:.1f} KB)')
     print(f'    Capital Floor OK:   \033[38;5;48m{metrics.capital_floor_preserved}\033[0m')
     print(f'    Elapsed Time:       {metrics.elapsed_seconds:.2f} seconds')
+
+asyncio.run(run())
+"
+}
+
+cmd_monte_carlo() {
+    banner
+    PATHS=${2:-5}
+    DAYS=${3:-10}
+    python3 -c "
+import asyncio
+from simulation.soak_runner import soak_runner
+
+async def run():
+    print(f'\033[1m  MONTE CARLO MULTI-SEED STRESS ANALYSIS ({$PATHS} Paths x {$DAYS} Days)\033[0m')
+    print('  Simulating independent stochastic market paths across randomized seeds...')
+    print('  --------------------------------------------------')
+    summary = await soak_runner.run_monte_carlo(num_paths=$PATHS, days_per_path=$DAYS)
+    for p in summary['paths']:
+        icon = '✓' if p['net_pnl'] >= 0 else '✗'
+        color = '\033[38;5;48m' if p['net_pnl'] >= 0 else '\033[38;5;203m'
+        print(f'  Path {p[\"path\"]:02d} | Seed: {p[\"seed\"]:10d} | Return: {color}{p[\"net_return_pct\"]:>+7.2f}%\033[0m | Max DD: \033[1m{p[\"max_drawdown_pct\"]:>5.2f}%\033[0m | WR: {p[\"win_rate_pct\"]:>5.1f}% | Cash: ₹{p[\"ending_cash\"]:,.2f}')
+    print('  --------------------------------------------------')
+    print('\033[1m  MONTE CARLO AGGREGATE SUMMARY:\033[0m')
+    print(f'    Mean Return:         {summary[\"mean_return_pct\"]:+.2f}% (Range: {summary[\"min_return_pct\"]:+.2f}% to {summary[\"max_return_pct\"]:+.2f}%)')
+    print(f'    Mean Max Drawdown:   {summary[\"mean_drawdown_pct\"]:.2f}% (Worst Path DD: \033[1m{summary[\"worst_drawdown_pct\"]:.2f}%\033[0m)')
+    print(f'    Mean Win Rate:       {summary[\"mean_win_rate_pct\"]:.1f}%')
+    print(f'    Capital Floor Preserved Across All Paths: \033[38;5;48m{summary[\"all_capital_floors_preserved\"]}\033[0m')
 
 asyncio.run(run())
 "
@@ -524,7 +576,8 @@ cmd_help() {
     echo -e "  ${C_EMERALD}test${C_RESET}        Run the complete test suite"
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
-    echo -e "  ${C_EMERALD}soak${C_RESET}        Run automated continuous paper soak test [days] [interval]"
+    echo -e "  ${C_EMERALD}soak${C_RESET}        Run automated continuous paper soak test [days] [interval] [seed]"
+    echo -e "  ${C_EMERALD}monte-carlo${C_RESET} Run multi-path Monte Carlo stress analysis [paths] [days]"
     echo -e "  ${C_EMERALD}stress${C_RESET}      Run adversarial stress test (Drift Guard & Kill Switch)"
     echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
     echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
@@ -565,6 +618,9 @@ case "$1" in
         ;;
     soak)
         cmd_soak "$@"
+        ;;
+    monte-carlo)
+        cmd_monte_carlo "$@"
         ;;
     stress)
         cmd_stress

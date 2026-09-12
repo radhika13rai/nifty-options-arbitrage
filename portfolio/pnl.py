@@ -25,17 +25,20 @@ class PortfolioPnLReport:
     peak_capital: float
     drawdown_inr: float
     drawdown_pct: float
-    is_daily_limit_breached: bool
+    max_drawdown_pct: float = 0.0
+    is_daily_limit_breached: bool = False
 
 
 class PnLManager:
-    """Manages real-time PnL and friction accounting."""
+    """Manages real-time PnL, friction accounting, and peak-to-trough drawdowns."""
 
     def __init__(self, initial_capital: float = config.initial_capital_inr):
         self.starting_cash = initial_capital
         self.current_cash = initial_capital
         self.peak_capital = initial_capital
         self.total_friction = 0.0
+        self.max_drawdown_inr = 0.0
+        self.max_drawdown_pct = 0.0
 
     @property
     def cash_balance(self) -> float:
@@ -43,23 +46,26 @@ class PnLManager:
         return self.current_cash
 
     def adjust_cash(self, net_cash_flow: float, friction: float) -> None:
-        """Called when an order fills."""
+        """Applies order cash flow and friction fees."""
         self.current_cash = round(self.current_cash + net_cash_flow, 2)
         self.total_friction = round(self.total_friction + friction, 2)
-        if self.current_cash > self.peak_capital:
-            self.peak_capital = self.current_cash
+
+    def reset(self, new_initial_capital: Optional[float] = None) -> None:
+        """Resets PnL and cash to initial capital baseline."""
+        cap = new_initial_capital if new_initial_capital is not None else config.initial_capital_inr
+        self.starting_cash = cap
+        self.current_cash = cap
+        self.peak_capital = cap
+        self.total_friction = 0.0
+        self.max_drawdown_inr = 0.0
+        self.max_drawdown_pct = 0.0
 
     def reset_balance(self, capital: float = config.initial_capital_inr) -> None:
-        self.starting_cash = capital
-        self.current_cash = capital
-        self.peak_capital = capital
-        self.total_friction = 0.0
-
-    def reset(self, capital: float = config.initial_capital_inr) -> None:
-        """Alias for reset_balance."""
-        self.reset_balance(capital)
+        """Alias for reset."""
+        self.reset(capital)
 
     def generate_report(self) -> PortfolioPnLReport:
+        """Generates comprehensive Mark-to-Market PnL and Drawdown report."""
         open_positions = position_tracker.get_open_positions()
         all_positions = position_tracker.get_all_positions()
 
@@ -79,8 +85,14 @@ class PnLManager:
 
         drawdown = round(max(0.0, self.peak_capital - total_value), 2)
         drawdown_pct = round((drawdown / self.peak_capital) * 100, 2) if self.peak_capital > 0 else 0.0
-        net_pct = round((net_pnl / self.starting_cash) * 100, 2) if self.starting_cash > 0 else 0.0
+        
+        # Track true running maximum drawdown over all history
+        if drawdown > self.max_drawdown_inr:
+            self.max_drawdown_inr = drawdown
+        if drawdown_pct > self.max_drawdown_pct:
+            self.max_drawdown_pct = drawdown_pct
 
+        net_pct = round((net_pnl / self.starting_cash) * 100, 2) if self.starting_cash > 0 else 0.0
         daily_breached = (realized - self.total_friction) <= -config.risk.max_daily_loss_inr
 
         return PortfolioPnLReport(
@@ -98,6 +110,7 @@ class PnLManager:
             peak_capital=round(self.peak_capital, 2),
             drawdown_inr=drawdown,
             drawdown_pct=drawdown_pct,
+            max_drawdown_pct=self.max_drawdown_pct,
             is_daily_limit_breached=daily_breached
         )
 

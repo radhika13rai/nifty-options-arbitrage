@@ -86,3 +86,20 @@ def test_reject_when_kill_switch_engaged():
     assert res.passed is False
     assert any("KILL_SWITCH_ENGAGED" in v for v in res.violations)
     kill_switch.reset("CONFIRM_RESET")
+
+
+def test_kill_switch_hmac_cryptographic_verification():
+    """Verify HMAC-SHA256 token verification and invalid token rejection."""
+    import pytest
+    kill_switch.engage("Testing HMAC reset", "TEST")
+    assert kill_switch.is_engaged is True
+    
+    # 1. Invalid token raises ValueError without leaking expected string
+    with pytest.raises(ValueError, match="Cryptographic verification failed"):
+        kill_switch.reset("FORGED_TOKEN_12345")
+    assert kill_switch.is_engaged is True
+    
+    # 2. Valid HMAC token disengages
+    valid_hmac = kill_switch.generate_reset_token()
+    kill_switch.reset(valid_hmac)
+    assert kill_switch.is_engaged is False
