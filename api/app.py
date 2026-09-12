@@ -41,6 +41,8 @@ from global_macro.trainer import macro_trainer
 from global_macro.poller import live_macro_poller
 from execution.auto_engine import auto_engine
 from scheduler.daily_routine import market_scheduler, MarketPhase
+from analytics.greeks import calculate_all_greeks, calculate_implied_volatility
+from analytics.strike_screener import strike_screener
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -681,6 +683,124 @@ async def reset_soak_runner(request):
     return JSONResponse({"status": "RESET_COMPLETE", "metrics": soak_runner.get_metrics_dict()})
 
 
+# --- Black-Scholes Greeks & Strike Screener Handlers ---
+
+async def calculate_greeks_endpoint(request):
+    """Calculates Black-Scholes Greeks and theoretical pricing."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    try:
+        spot = float(data.get("spot", 24500.0))
+        strike = float(data.get("strike", 24700.0))
+        days = float(data.get("days_to_expiry", 4.0))
+        iv = float(data.get("iv", 0.155))
+        opt_type = str(data.get("option_type", "CE"))
+        rate = float(data.get("risk_free_rate", config.market.risk_free_rate))
+        lot_size = int(data.get("lot_size", config.market.nifty_lot_size))
+
+        greeks = calculate_all_greeks(
+            spot=spot,
+            strike=strike,
+            days_to_expiry=days,
+            iv=iv,
+            option_type=opt_type,
+            risk_free_rate=rate,
+            lot_size=lot_size
+        )
+        return JSONResponse({"status": "SUCCESS", "greeks": greeks.to_dict()})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def calculate_iv_endpoint(request):
+    """Solves for Implied Volatility (IV) given option market price."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    try:
+        market_price = float(data.get("market_price", 0.0))
+        spot = float(data.get("spot", 24500.0))
+        strike = float(data.get("strike", 24700.0))
+        days = float(data.get("days_to_expiry", 4.0))
+        opt_type = str(data.get("option_type", "CE"))
+        rate = float(data.get("risk_free_rate", config.market.risk_free_rate))
+
+        t_years = max(0.0001, days / 365.0)
+        solved_iv = calculate_implied_volatility(
+            market_price=market_price,
+            spot=spot,
+            strike=strike,
+            time_to_expiry_years=t_years,
+            risk_free_rate=rate,
+            option_type=opt_type
+        )
+        if solved_iv is None:
+            return JSONResponse(
+                {"status": "ERROR", "message": "No arbitrage-free IV solution found for given price and parameters"},
+                status_code=422
+            )
+
+        return JSONResponse({
+            "status": "SUCCESS",
+            "implied_volatility": solved_iv,
+            "iv_pct": round(solved_iv * 100.0, 2),
+            "inputs": {
+                "market_price": market_price,
+                "spot": spot,
+                "strike": strike,
+                "days_to_expiry": days,
+                "option_type": opt_type
+            }
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def strike_screener_endpoint(request):
+    """Screens option chain for micro-capital compliant OTM strikes."""
+    if request.method == "POST":
+        try:
+            params = await request.json()
+        except Exception:
+            params = {}
+    else:
+        params = dict(request.query_params)
+
+    try:
+        spot = float(params.get("spot", 24500.0))
+        days = float(params.get("days_to_expiry", 4.0))
+        iv = float(params.get("iv", 0.155))
+        bias = str(params.get("bias", "BULLISH"))
+
+        screened = strike_screener.generate_and_screen(
+            spot=spot,
+            days_to_expiry=days,
+            iv=iv,
+            directional_bias=bias
+        )
+        eligible = [s for s in screened if s.is_eligible]
+        best = eligible[0] if eligible else None
+
+        return JSONResponse({
+            "status": "SUCCESS",
+            "spot": spot,
+            "directional_bias": bias,
+            "days_to_expiry": days,
+            "iv": iv,
+            "best_strike": best.to_dict() if best else None,
+            "eligible_count": len(eligible),
+            "eligible_strikes": [s.to_dict() for s in eligible],
+            "total_screened": len(screened)
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
 # --- Dashboard HTML Handler ---
 
 async def serve_dashboard(request):
@@ -727,6 +847,9 @@ routes = [
     Route("/api/kill-switch", trigger_kill_switch, methods=["POST"]),
     Route("/api/paper/reset", reset_paper_account, methods=["POST"]),
     Route("/api/paper/order", place_paper_order, methods=["POST"]),
+    Route("/api/greeks/calculate", calculate_greeks_endpoint, methods=["POST"]),
+    Route("/api/greeks/iv", calculate_iv_endpoint, methods=["POST"]),
+    Route("/api/greeks/screener", strike_screener_endpoint, methods=["GET", "POST"]),
     WebSocketRoute("/ws/stream", websocket_stream),
     Route("/", serve_dashboard, methods=["GET"]),
 ]

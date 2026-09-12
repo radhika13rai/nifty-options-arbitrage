@@ -364,6 +364,97 @@ asyncio.run(adversarial_tester.run_adversarial_suite(verbose=True))
 "
 }
 
+cmd_greeks() {
+    banner
+    shift || true
+    SPOT="${1:-24500}"
+    STRIKE="${2:-24700}"
+    DAYS="${3:-4}"
+    IV="${4:-0.155}"
+    TYPE="${5:-CE}"
+
+    python3 -c "
+from analytics.greeks import calculate_all_greeks, calculate_implied_volatility
+
+spot = float('$SPOT')
+strike = float('$STRIKE')
+days = float('$DAYS')
+iv = float('$IV')
+opt_type = '$TYPE'
+
+g = calculate_all_greeks(spot, strike, days, iv, opt_type)
+solved_iv = calculate_implied_volatility(g.theoretical_price, spot, strike, g.time_to_expiry_years, g.risk_free_rate, opt_type)
+
+print('\033[1m' + '═' * 66 + '\033[0m')
+print('  \033[38;5;48m\033[1m⬡ BLACK-SCHOLES GREEKS & PRICING ENGINE\033[0m')
+print('\033[1m' + '═' * 66 + '\033[0m')
+print(f'  • Contract       : NIFTY {int(strike)} {opt_type.upper()} ({days:.1f} days to expiry)')
+print(f'  • Spot Price     : ₹{spot:,.2f} | Risk-Free Rate: {g.risk_free_rate*100:.2f}%')
+print(f'  • Implied Vol    : {iv*100:.2f}% (Annualized)')
+print(f'  • Theo Price     : \033[38;5;51m\033[1m₹{g.theoretical_price:.2f}\033[0m (Intrinsic: ₹{g.intrinsic_value:.2f} | Time: ₹{g.time_value:.2f})')
+print(f'  • 1 Lot Outlay   : ₹{g.theoretical_price * 65:,.2f} (Lot size: 65 units)')
+print('\033[38;5;244m' + '─' * 66 + '\033[0m')
+print(f'  • Delta (Δ)      : \033[1m{g.delta:+.4f}\033[0m (Directional sensitivity)')
+print(f'  • Gamma (Γ)      : \033[1m{g.gamma:.6f}\033[0m (Convexity curvature)')
+print(f'  • Theta (Θ) /day : \033[38;5;197m{g.theta_per_day:+.2f} pts/day\033[0m ({g.theta_per_lot_inr:+.2f} INR/lot/day)')
+print(f'  • Theta (Θ) /hour: \033[38;5;197m{g.theta_per_hour:+.2f} pts/hr\033[0m (NSE 6.25 hr day)')
+print(f'  • Vega  (ν) /1%  : \033[38;5;48m{g.vega_per_1pct:+.2f} pts\033[0m ({g.vega_per_lot_inr:+.2f} INR/lot per 1% IV)')
+print(f'  • Rho   (ρ) /1%  : {g.rho_per_1pct:+.2f} pts')
+if solved_iv is not None:
+    print(f'  • IV Solver Verif: {solved_iv*100:.2f}% (Inverse BS Newton-Raphson)')
+print('\033[1m' + '═' * 66 + '\033[0m')
+"
+}
+
+cmd_screener() {
+    banner
+    shift || true
+    SPOT="${1:-24500}"
+    BIAS="${2:-BULLISH}"
+    DAYS="${3:-4}"
+    IV="${4:-0.155}"
+
+    python3 -c "
+from analytics.strike_screener import strike_screener
+
+spot = float('$SPOT')
+bias = '$BIAS'
+days = float('$DAYS')
+iv = float('$IV')
+
+screened = strike_screener.generate_and_screen(spot=spot, days_to_expiry=days, iv=iv, directional_bias=bias)
+eligible = [s for s in screened if s.is_eligible]
+best = eligible[0] if eligible else None
+
+print('\033[1m' + '═' * 74 + '\033[0m')
+print('  \033[38;5;48m\033[1m⬡ DYNAMIC OTM STRIKE SCREENER (CAPITAL LIMIT: ₹3,000.00)\033[0m')
+print(f'  Spot: ₹{spot:,.2f} | Bias: \033[1m{bias.upper()}\033[0m | Days to Expiry: {days:.1f} | IV: {iv*100:.1f}%')
+print('\033[1m' + '═' * 74 + '\033[0m')
+
+if best:
+    print(f'  \033[38;5;48m\033[1m★ SELECTED OPTIMAL STRIKE:\033[0m \033[38;5;51m\033[1m{best.symbol}\033[0m')
+    print(f'    • Premium     : ₹{best.market_price:.2f} (Cap <= ₹38.00)')
+    print(f'    • Outlay      : ₹{best.capital_outlay:,.2f} (65 units)')
+    print(f'    • Headroom    : ₹{best.capital_headroom:,.2f} liquid reserve (Budget: ₹3,000)')
+    print(f'    • Delta (Δ)   : {best.greeks.delta:+.4f} (Target 0.15 - 0.30)')
+    print(f'    • Theta (Θ)   : {best.greeks.theta_per_day:+.2f} pts/day ({best.greeks.theta_per_lot_inr:+.2f} INR/lot)')
+    print(f'    • Quality     : \033[38;5;48m\033[1m{best.quality_score:.1f} / 100\033[0m')
+else:
+    print('  \033[38;5;197m✗ NO ELIGIBLE STRIKES FOUND MATCHING CAPITAL AND DELTA INVARIANTS\033[0m')
+
+print('\n  \033[1mTOP SCREENED STRIKES:\033[0m')
+print(f'  {\"Symbol\":<28} {\"Strike\":<8} {\"Price\":<8} {\"Delta\":<8} {\"Outlay\":<10} {\"Score\":<7} {\"Status\"}')
+print('  ' + '─' * 72)
+for s in screened[:8]:
+    status = '\033[38;5;48mELIGIBLE\033[0m' if s.is_eligible else '\033[38;5;197mREJECTED\033[0m'
+    print(f'  {s.symbol:<28} {s.strike:<8.0f} ₹{s.market_price:<7.2f} {s.greeks.delta:<+8.3f} ₹{s.capital_outlay:<9.2f} {s.quality_score:<7.1f} {status}')
+    if not s.is_eligible:
+        for r in s.rejection_reasons[:1]:
+            print(f'    \033[38;5;244m↳ {r}\033[0m')
+print('\033[1m' + '═' * 74 + '\033[0m')
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
@@ -383,6 +474,8 @@ cmd_help() {
     echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
     echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
     echo -e "  ${C_EMERALD}slippage${C_RESET}    Display orderbook queue priority & slippage telemetry"
+    echo -e "  ${C_EMERALD}greeks${C_RESET}      Compute Black-Scholes Greeks [spot] [strike] [days] [iv] [type]"
+    echo -e "  ${C_EMERALD}screener${C_RESET}    Screen dynamic OTM strikes [spot] [bias] [days] [iv]"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
     echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
     echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
@@ -428,6 +521,12 @@ case "$1" in
         ;;
     slippage)
         cmd_slippage
+        ;;
+    greeks)
+        cmd_greeks "$@"
+        ;;
+    screener)
+        cmd_screener "$@"
         ;;
     square-off)
         cmd_square_off
