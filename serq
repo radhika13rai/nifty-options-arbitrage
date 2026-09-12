@@ -354,6 +354,16 @@ asyncio.run(run())
 "
 }
 
+cmd_stress() {
+    banner
+    python3 -c "
+import asyncio
+from simulation.stress_test import adversarial_tester
+
+asyncio.run(adversarial_tester.run_adversarial_suite(verbose=True))
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
@@ -369,6 +379,7 @@ cmd_help() {
     echo -e "  ${C_EMERALD}simulate${C_RESET}    Run an offline single-day trading simulation"
     echo -e "  ${C_EMERALD}backtest${C_RESET}    Run 10-day historical walk-forward backtest (Paper V2)"
     echo -e "  ${C_EMERALD}soak${C_RESET}        Run automated continuous paper soak test [days] [interval]"
+    echo -e "  ${C_EMERALD}stress${C_RESET}      Run adversarial stress test (Drift Guard & Kill Switch)"
     echo -e "  ${C_EMERALD}drift${C_RESET}       Inspect AI model drift metrics & rollback guard"
     echo -e "  ${C_EMERALD}feed${C_RESET}        Display live market data streaming health & latency"
     echo -e "  ${C_EMERALD}slippage${C_RESET}    Display orderbook queue priority & slippage telemetry"
@@ -405,6 +416,9 @@ case "$1" in
         ;;
     soak)
         cmd_soak "$@"
+        ;;
+    stress)
+        cmd_stress
         ;;
     drift)
         cmd_drift

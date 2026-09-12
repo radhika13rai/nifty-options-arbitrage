@@ -488,6 +488,8 @@ class WalkForwardSimulator:
     async def _run_single_day(self, scenario: DayScenarioConfig) -> DaySimulationResult:
         """Simulates one complete 09:00 - 15:35 trading day session."""
         start_cash = pnl_manager.current_cash
+        pnl_manager.reset_balance(start_cash)
+        position_tracker.reset()
         actions_taken = []
         day_trades: list[dict] = []
 
@@ -526,8 +528,8 @@ class WalkForwardSimulator:
                 premium=scenario.base_price
             )
 
-            # In Day 9, force probe execution for guardrail verification
-            if should_trade or scenario.day_number == 9:
+            # Force probe execution for guardrail, adversarial, and stress verification
+            if should_trade or scenario.day_number == 9 or "Adversarial" in scenario.title or "Probe" in scenario.title or "Stress" in scenario.title:
                 sig = TradingSignal(
                     signal_id=f"SIG_D{scenario.day_number}_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}",
                     timestamp_ms=time.time() * 1000.0,
