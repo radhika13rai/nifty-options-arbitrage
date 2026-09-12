@@ -1533,12 +1533,15 @@
       const qList = document.getElementById('quotes-list');
       if (!qList || !quotesData) return;
 
-      const spotMid = quotesData['NIFTY_SPOT'] ? quotesData['NIFTY_SPOT'].mid : 24500.0;
+      const spotMid = quotesData['NIFTY_SPOT'] ? (quotesData['NIFTY_SPOT'].mid ?? quotesData['NIFTY_SPOT'].mid_price ?? 24500.0) : 24500.0;
       let items = Object.entries(quotesData).filter(([sym]) => sym !== 'NIFTY_SPOT');
 
       // Filter
       if (currentQuoteFilter === 'eligible') {
-        items = items.filter(([sym, q]) => q.ask <= 38.0 && q.ask >= 5.0);
+        items = items.filter(([sym, q]) => {
+          const ask = q.ask ?? q.best_ask ?? 0;
+          return ask <= 38.0 && ask >= 5.0;
+        });
       } else if (currentQuoteFilter === 'ce') {
         items = items.filter(([sym]) => sym.endsWith('_CE'));
       } else if (currentQuoteFilter === 'pe') {
@@ -1566,8 +1569,12 @@
       for (const [sym, q] of items) {
         const isCall = sym.endsWith('_CE');
         const symColor = isCall ? 'var(--emerald)' : 'var(--accent-purple)';
-        const outlay = q.ask * 65;
-        const isEligible = q.ask <= 38.0 && outlay <= 2470.0;
+        const ask = q.ask ?? q.best_ask ?? 0;
+        const bid = q.bid ?? q.best_bid ?? 0;
+        const mid = q.mid ?? q.mid_price ?? ((ask + bid) / 2);
+        const imbal = q.imbalance ?? 0;
+        const outlay = ask * 65;
+        const isEligible = ask <= 38.0 && outlay <= 2470.0;
         const badgeHtml = isEligible
           ? `<span class="tag-badge tag-feasible" style="font-size:9px; padding:2px 6px;">₹${Math.round(outlay)} SAFE</span>`
           : `<span class="tag-badge tag-infeasible" style="font-size:9px; padding:2px 6px;">>₹38 CAP</span>`;
@@ -1578,14 +1585,14 @@
               '<span class="row-sym-bold" style="color:' + symColor + '">' + sym + '</span>' +
               badgeHtml +
             '</div>' +
-            '<div class="row-sub-detail">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + ' | Imbal: ' + (q.imbalance * 100).toFixed(0) + '%</div>' +
+            '<div class="row-sub-detail">Bid: ₹' + bid.toFixed(2) + ' | Ask: ₹' + ask.toFixed(2) + ' | Imbal: ' + (imbal * 100).toFixed(0) + '%</div>' +
           '</div>' +
           '<div style="display:flex; align-items:center; gap:8px;">' +
             '<div style="text-align:right;">' +
-              '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;">₹' + q.mid.toFixed(2) + '</div>' +
+              '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;">₹' + mid.toFixed(2) + '</div>' +
               '<div style="font-size:9px; color:var(--text-muted);">Outlay: ₹' + Math.round(outlay) + '</div>' +
             '</div>' +
-            '<button class="btn-buy-serq" style="' + (isEligible ? '' : 'opacity:0.6; filter:grayscale(0.6);') + '" onclick="orderOption(\'' + sym + '\', \'BUY\', ' + q.ask + ')">BUY 65</button>' +
+            '<button class="btn-buy-serq" style="' + (isEligible ? '' : 'opacity:0.6; filter:grayscale(0.6);') + '" onclick="orderOption(\'' + sym + '\', \'BUY\', ' + ask + ')">BUY 65</button>' +
           '</div>' +
         '</div>';
       }
@@ -1837,7 +1844,7 @@
             let histNote = '';
             if (at.recent_history && at.recent_history.length > 0) {
               const last = at.recent_history[at.recent_history.length - 1];
-              histNote = '<div style="margin-top:6px; font-size:10px; color:var(--emerald); font-family:'JetBrains Mono',monospace;">Last Trade: ' + last.symbol + ' -> Net ₹' + (last.net_pnl >= 0 ? '+' : '') + last.net_pnl.toFixed(2) + ' (' + last.reason + ')</div>';
+              histNote = '<div style="margin-top:6px; font-size:10px; color:var(--emerald); font-family:\'JetBrains Mono\',monospace;">Last Trade: ' + last.symbol + ' -> Net ₹' + (last.net_pnl >= 0 ? '+' : '') + last.net_pnl.toFixed(2) + ' (' + last.reason + ')</div>';
             }
             mtContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:11px;">' +
               'Scanning orderbooks. Auto-Pilot enters single-leg breakouts when ML conviction ≥ 55% and Net P&L clears the ₹52 fee hurdle.' +
@@ -1860,13 +1867,14 @@
       if (data.quotes) {
         const spot = data.quotes['NIFTY_SPOT'];
         if (spot) {
+          const spotVal = spot.mid !== undefined ? spot.mid : (spot.mid_price !== undefined ? spot.mid_price : 24500.0);
           const spEl = document.getElementById('spot-price');
-          if (spEl) spEl.innerText = spot.mid.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          if (spEl && spotVal !== undefined) spEl.innerText = Number(spotVal).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
           
           // Auto-sync screener spot if not manually modified
           const scrSpotInput = document.getElementById('scr-spot');
-          if (scrSpotInput && !scrSpotInput.dataset.modified) {
-            scrSpotInput.value = Math.round(spot.mid);
+          if (scrSpotInput && !scrSpotInput.dataset.modified && spotVal !== undefined) {
+            scrSpotInput.value = Math.round(Number(spotVal));
           }
         }
         renderQuotes(data.quotes);
@@ -1889,8 +1897,8 @@
                   '<div class="row-sub-detail">Avg: ₹' + p.avg.toFixed(2) + ' | LTP: ₹' + p.ltp.toFixed(2) + ' | Costs: ₹' + p.costs.toFixed(2) + '</div>' +
                 '</div>' +
                 '<div style="display:flex; align-items:center; gap:8px;">' +
-                  '<span style="font-family:'JetBrains Mono',monospace; font-weight:800; font-size:13px;" class="' + (p.unrealized >= 0 ? 'val-profit' : 'val-loss') + '">₹' + p.unrealized.toFixed(2) + '</span>' +
-                  '<button class="btn-serq-secondary btn-serq-danger" style="padding: 4px 10px; font-size: 10px;" onclick="orderOption('' + p.symbol + '', 'SELL', ' + p.ltp + ')">EXIT</button>' +
+                  '<span style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;" class="' + (p.unrealized >= 0 ? 'val-profit' : 'val-loss') + '">₹' + p.unrealized.toFixed(2) + '</span>' +
+                  '<button class="btn-serq-secondary btn-serq-danger" style="padding: 4px 10px; font-size: 10px;" onclick="orderOption(\'' + p.symbol + '\', \'SELL\', ' + p.ltp + ')">EXIT</button>' +
                 '</div>' +
               '</div>';
             });
@@ -1963,12 +1971,7 @@
       const resp = await fetch('/api/global-macro/train', { method: 'POST' });
       const data = await resp.json();
       if (data.success) {
-        alert("Multimodal AI Trained!
-Epoch: " + data.epoch + "
-Samples: " + data.num_samples + "
-Directional Accuracy: " + (data.directional_accuracy*100).toFixed(1) + "%
-MSE: " + data.train_mse + "
-Weights updated.");
+        alert("Multimodal AI Trained!\nEpoch: " + data.epoch + "\nSamples: " + data.num_samples + "\nDirectional Accuracy: " + (data.directional_accuracy*100).toFixed(1) + "%\nMSE: " + data.train_mse + "\nWeights updated.");
       } else {
         alert("Training failed: " + data.error);
       }
@@ -1978,11 +1981,7 @@ Weights updated.");
       const resp = await fetch('/api/global-macro/poll', { method: 'POST' });
       const data = await resp.json();
       if (data.status === 'SUCCESS') {
-        alert("Live World Cues Synced!
-Brent: $" + data.brent + " | DXY: " + data.dxy + "
-Est Gap: " + data.gap_pts + " pts
-Posture: " + data.posture + "
-News Headlines Ingested: " + data.news_count);
+        alert("Live World Cues Synced!\nBrent: $" + data.brent + " | DXY: " + data.dxy + "\nEst Gap: " + data.gap_pts + " pts\nPosture: " + data.posture + "\nNews Headlines Ingested: " + data.news_count);
       } else {
         alert("Macro poll failed: " + data.error);
       }
@@ -2080,7 +2079,7 @@ News Headlines Ingested: " + data.news_count);
             (o.rejection_reason ? '<div class="row-sub-detail" style="color:var(--accent-red);">' + o.rejection_reason + '</div>' : '') +
           '</div>' +
           '<div style="text-align:right;">' +
-            '<div style="font-family:'JetBrains Mono',monospace; font-weight:800;">₹' + (o.fill_price ? o.fill_price.toFixed(2) : o.requested_price.toFixed(2)) + '</div>' +
+            '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800;">₹' + (o.fill_price ? o.fill_price.toFixed(2) : o.requested_price.toFixed(2)) + '</div>' +
             '<div class="row-sub-detail">Fees: ₹' + o.total_costs.toFixed(2) + '</div>' +
           '</div>' +
         '</div>';
@@ -2104,7 +2103,7 @@ News Headlines Ingested: " + data.news_count);
             '<div class="row-sub-detail">Turnover: ₹' + t.turnover.toFixed(2) + ' | Brk: ₹' + t.brokerage + ' | STT: ₹' + t.stt + ' | GST: ₹' + t.gst + '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
-            '<div style="font-family:'JetBrains Mono',monospace; font-weight:800;">₹' + t.price.toFixed(2) + '</div>' +
+            '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800;">₹' + t.price.toFixed(2) + '</div>' +
             '<div class="row-sub-detail val-loss">Fee: ₹' + t.total_costs.toFixed(2) + '</div>' +
           '</div>' +
         '</div>';
