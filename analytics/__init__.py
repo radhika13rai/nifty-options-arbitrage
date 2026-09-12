@@ -23,6 +23,11 @@ from analytics.strike_screener import (
     StrikeScreener,
     strike_screener,
 )
+from analytics.volatility_surface import (
+    VolatilitySurface,
+    volatility_surface,
+    VolatilitySurfacePoint,
+)
 
 __all__ = [
     "OptionGreeks",
@@ -40,4 +45,7 @@ __all__ = [
     "ScreenedStrike",
     "StrikeScreener",
     "strike_screener",
+    "VolatilitySurface",
+    "volatility_surface",
+    "VolatilitySurfacePoint",
 ]

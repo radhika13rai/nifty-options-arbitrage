@@ -455,6 +455,52 @@ print('\033[1m' + '═' * 74 + '\033[0m')
 "
 }
 
+cmd_skew() {
+    banner
+    shift || true
+    SPOT="${1:-24500}"
+    DAYS="${2:-4}"
+    ATM_IV="${3:-0.155}"
+
+    python3 -c "
+from analytics.volatility_surface import volatility_surface
+
+spot = float('$SPOT')
+days = float('$DAYS')
+atm_iv = float('$ATM_IV')
+
+curve = volatility_surface.generate_skew_curve(spot=spot, days_to_expiry=days, num_strikes=8, atm_iv_override=atm_iv)
+atm_strike = round(spot / 50.0) * 50.0
+
+print('\033[1m' + '═' * 78 + '\033[0m')
+print('  \033[38;5;48m\033[1m⬡ EMPIRICAL VOLATILITY SKEW & SURFACE (PARAMETRIC LOG-MONEYNESS)\033[0m')
+print(f'  Spot: ₹{spot:,.2f} | Days to Expiry: {days:.1f} | Base ATM IV: {atm_iv*100:.1f}%')
+print(f'  Skew Slope (β1): {volatility_surface.skew_slope:+.3f} (Put Skew) | Curvature (β2): {volatility_surface.smile_curvature:.3f}')
+print('\033[1m' + '═' * 78 + '\033[0m')
+print(f'  {\"Strike\":<8} {\"Moneyness\":<11} {\"Log-M\":<8} {\"Classification\":<18} {\"IV %\":<8} {\"Skew Diff\":<11} {\"Volatility Profile\"}')
+print('  ' + '─' * 76)
+
+for pt in curve:
+    diff = (pt.implied_volatility - atm_iv) * 100.0
+    diff_str = f'{diff:+.2f}%'
+    if pt.strike < atm_strike:
+        cls_str = '\033[38;5;197mOTM PUT (Hedge)\033[0m'
+    elif pt.strike == atm_strike:
+        cls_str = '\033[38;5;51m★ ATM BENCHMARK\033[0m'
+    else:
+        cls_str = '\033[38;5;48mOTM CALL (Spec)\033[0m'
+
+    bar_len = max(1, min(16, int(round((pt.implied_volatility - 0.08) / 0.16 * 16))))
+    bar = '█' * bar_len + '░' * (16 - bar_len)
+
+    print(f'  {pt.strike:<8.0f} {pt.moneyness_ratio:<11.4f} {pt.log_moneyness:<+8.4f} {cls_str:<27} {pt.iv_pct:<8.2f} {diff_str:<11} [{bar}]')
+
+print('\033[1m' + '═' * 78 + '\033[0m')
+print('  \033[38;5;244mStructural Note: Downside OTM Puts trade at volatility premium (crash protection).\033[0m')
+print('  \033[38;5;244mNear-term expiries feature steeper skew gradient than monthly contracts.\033[0m')
+"
+}
+
 cmd_help() {
     banner
     echo -e "${C_BOLD}USAGE:${C_RESET}"
@@ -476,6 +522,7 @@ cmd_help() {
     echo -e "  ${C_EMERALD}slippage${C_RESET}    Display orderbook queue priority & slippage telemetry"
     echo -e "  ${C_EMERALD}greeks${C_RESET}      Compute Black-Scholes Greeks [spot] [strike] [days] [iv] [type]"
     echo -e "  ${C_EMERALD}screener${C_RESET}    Screen dynamic OTM strikes [spot] [bias] [days] [iv]"
+    echo -e "  ${C_EMERALD}skew${C_RESET}        Display empirical Volatility Skew curve [spot] [days] [atm_iv]"
     echo -e "  ${C_EMERALD}square-off${C_RESET}  Emergency square-off all active positions"
     echo -e "  ${C_EMERALD}kill${C_RESET}        Engage emergency kill switch via REST API"
     echo -e "  ${C_EMERALD}help${C_RESET}        Display this guide"
@@ -527,6 +574,9 @@ case "$1" in
         ;;
     screener)
         cmd_screener "$@"
+        ;;
+    skew)
+        cmd_skew "$@"
         ;;
     square-off)
         cmd_square_off

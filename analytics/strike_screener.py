@@ -228,11 +228,13 @@ class StrikeScreener:
         directional_bias: DirectionalBias = "BULLISH",
         num_strikes: int = 15,
         strike_interval: int = config.market.strike_interval,
-        expiry: str = "2026-09-24"
+        expiry: str = "2026-09-24",
+        use_skew: bool = False
     ) -> List[ScreenedStrike]:
         """
         Generates and evaluates a full option chain around the spot price.
         Returns all evaluated strikes sorted by eligibility first, then quality_score descending.
+        When use_skew=True, evaluates each strike using parametric volatility surface skew.
         """
         bias = directional_bias.upper()
         if bias in ("BULLISH", "LONG", "BUY_CE"):
@@ -247,13 +249,22 @@ class StrikeScreener:
 
         for i in range(-num_strikes, num_strikes + 1):
             k = atm_strike + (i * strike_interval)
+            strike_iv = iv
+            if use_skew:
+                from analytics.volatility_surface import volatility_surface
+                strike_iv = volatility_surface.get_implied_volatility(
+                    strike=float(k),
+                    spot=spot,
+                    days_to_expiry=days_to_expiry,
+                    atm_iv_override=iv
+                )
             for ot in target_types:
                 sc = self.evaluate_strike(
                     strike=float(k),
                     option_type=ot,
                     spot=spot,
                     days_to_expiry=days_to_expiry,
-                    iv=iv,
+                    iv=strike_iv,
                     expiry=expiry
                 )
                 evaluated.append(sc)
@@ -267,7 +278,8 @@ class StrikeScreener:
         days_to_expiry: float = 4.0,
         iv: float = 0.155,
         directional_bias: DirectionalBias = "BULLISH",
-        expiry: str = "2026-09-24"
+        expiry: str = "2026-09-24",
+        use_skew: bool = False
     ) -> Optional[ScreenedStrike]:
         """
         Selects the single highest-scoring eligible strike matching directional posture.
@@ -278,7 +290,8 @@ class StrikeScreener:
             days_to_expiry=days_to_expiry,
             iv=iv,
             directional_bias=directional_bias,
-            expiry=expiry
+            expiry=expiry,
+            use_skew=use_skew
         )
         eligible = [s for s in screened if s.is_eligible]
         if eligible:

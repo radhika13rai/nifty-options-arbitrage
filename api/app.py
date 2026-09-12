@@ -43,6 +43,7 @@ from execution.auto_engine import auto_engine
 from scheduler.daily_routine import market_scheduler, MarketPhase
 from analytics.greeks import calculate_all_greeks, calculate_implied_volatility
 from analytics.strike_screener import strike_screener
+from analytics.volatility_surface import volatility_surface
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -776,12 +777,14 @@ async def strike_screener_endpoint(request):
         days = float(params.get("days_to_expiry", 4.0))
         iv = float(params.get("iv", 0.155))
         bias = str(params.get("bias", "BULLISH"))
+        use_skew = str(params.get("use_skew", "false")).lower() in ("true", "1", "yes")
 
         screened = strike_screener.generate_and_screen(
             spot=spot,
             days_to_expiry=days,
             iv=iv,
-            directional_bias=bias
+            directional_bias=bias,
+            use_skew=use_skew
         )
         eligible = [s for s in screened if s.is_eligible]
         best = eligible[0] if eligible else None
@@ -797,6 +800,61 @@ async def strike_screener_endpoint(request):
             "eligible_strikes": [s.to_dict() for s in eligible],
             "total_screened": len(screened)
         })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def get_volatility_skew_endpoint(request):
+    """Returns parametric Volatility Skew curve across strikes."""
+    params = dict(request.query_params)
+    try:
+        spot = float(params.get("spot", 24500.0))
+        days = float(params.get("days_to_expiry", 4.0))
+        atm_override = float(params["atm_iv"]) if "atm_iv" in params else None
+
+        skew_points = volatility_surface.generate_skew_curve(
+            spot=spot,
+            days_to_expiry=days,
+            atm_iv_override=atm_override
+        )
+        return JSONResponse({
+            "status": "SUCCESS",
+            "spot": spot,
+            "days_to_expiry": days,
+            "base_atm_iv": volatility_surface.base_atm_iv,
+            "skew_slope": volatility_surface.skew_slope,
+            "smile_curvature": volatility_surface.smile_curvature,
+            "points": [dataclasses.asdict(p) for p in skew_points]
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def get_volatility_surface_endpoint(request):
+    """Returns 2D grid matrix of implied volatility across strikes and expiries."""
+    params = dict(request.query_params)
+    try:
+        spot = float(params.get("spot", 24500.0))
+        grid = volatility_surface.get_surface_grid(spot=spot)
+        return JSONResponse({"status": "SUCCESS", "surface": grid})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+async def calibrate_volatility_endpoint(request):
+    """Calibrates skew parameters (ATM, slope, curvature) from orderbook quotes."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    try:
+        quotes = data.get("quotes", [])
+        spot = float(data.get("spot", 24500.0))
+        days = float(data.get("days_to_expiry", 4.0))
+
+        result = volatility_surface.calibrate_from_market_chain(quotes, spot, days)
+        return JSONResponse({"status": "SUCCESS", "calibration": result})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
@@ -850,6 +908,9 @@ routes = [
     Route("/api/greeks/calculate", calculate_greeks_endpoint, methods=["POST"]),
     Route("/api/greeks/iv", calculate_iv_endpoint, methods=["POST"]),
     Route("/api/greeks/screener", strike_screener_endpoint, methods=["GET", "POST"]),
+    Route("/api/greeks/skew", get_volatility_skew_endpoint, methods=["GET"]),
+    Route("/api/greeks/surface", get_volatility_surface_endpoint, methods=["GET"]),
+    Route("/api/greeks/calibrate", calibrate_volatility_endpoint, methods=["POST"]),
     WebSocketRoute("/ws/stream", websocket_stream),
     Route("/", serve_dashboard, methods=["GET"]),
 ]
