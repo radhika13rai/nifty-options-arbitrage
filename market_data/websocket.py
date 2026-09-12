@@ -32,6 +32,11 @@ class MarketDataFeed:
     def _dispatch(self, tick: MarketTick) -> None:
         """Update internal orderbook and dispatch to all registered listeners."""
         orderbook_manager.update_tick(tick)
+        try:
+            from market_data.stream import market_streamer
+            market_streamer.dispatch_tick(tick)
+        except Exception:
+            pass
         for cb in self._subscribers:
             try:
                 cb(tick)

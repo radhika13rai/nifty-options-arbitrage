@@ -1009,10 +1009,19 @@
       </div>
 
       <!-- Active Option Chain Quotes -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
         <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">ACTIVE OPTION QUOTES (65 QTY)</span>
         <button onclick="testBuyOrder()" class="btn-buy-serq">⚡ Test Paper Buy (1 Lot)</button>
       </div>
+
+      <!-- Quotes Quick Filter Bar -->
+      <div style="display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px;">
+        <button id="qf-all" onclick="setQuoteFilter('all')" class="tab-pill-btn active" style="padding: 4px 10px; font-size: 10px; border-radius: 6px;">All Quotes</button>
+        <button id="qf-eligible" onclick="setQuoteFilter('eligible')" class="tab-pill-btn" style="padding: 4px 10px; font-size: 10px; border-radius: 6px; color: var(--emerald);">★ Micro-Cap (≤ ₹38)</button>
+        <button id="qf-ce" onclick="setQuoteFilter('ce')" class="tab-pill-btn" style="padding: 4px 10px; font-size: 10px; border-radius: 6px;">Calls (CE)</button>
+        <button id="qf-pe" onclick="setQuoteFilter('pe')" class="tab-pill-btn" style="padding: 4px 10px; font-size: 10px; border-radius: 6px;">Puts (PE)</button>
+      </div>
+
       <div class="serq-list-wrap" id="quotes-list">
         <!-- Dynamically injected quotes -->
       </div>
@@ -1298,6 +1307,30 @@
         <div id="iv-solver-result" style="margin-top: 10px; font-size: 12px; color: var(--text-muted);"></div>
       </div>
 
+      <!-- Parametric Volatility Skew & Smile Card -->
+      <div class="serq-card">
+        <div class="squircle-card-head">
+          <div class="squircle-icon-badge" style="background: rgba(168, 85, 247, 0.1); color: #c084fc;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"></path>
+              <path d="M19 9l-5 5-4-4-3 3"></path>
+            </svg>
+          </div>
+          <div class="squircle-title-wrap">
+            <div class="squircle-pretag">PARAMETRIC LOG-MONEYNESS MODEL</div>
+            <h3>Empirical Volatility Skew Curve</h3>
+            <p>Downside Put Crash Premium & Term Structure Damping</p>
+          </div>
+          <button onclick="loadSkewUI()" class="btn-serq-secondary" style="padding: 4px 10px; font-size: 10px;">
+            🔄 Refresh Skew
+          </button>
+        </div>
+
+        <div id="skew-points-table" class="serq-list-wrap" style="max-height: 240px; overflow-y: auto; margin-top: 10px;">
+          <div style="text-align: center; color: var(--text-muted); padding: 15px;">Click "Refresh Skew" to load curve.</div>
+        </div>
+      </div>
+
     </section>
 
   </main>
@@ -1315,7 +1348,7 @@
 
       if (tabId === 'tab-arbitrage') refreshArbitrage();
       if (tabId === 'tab-orders') { loadOrders(); loadTrades(); }
-      if (tabId === 'tab-greeks') { calculateGreeksUI(); runScreenerUI(); }
+      if (tabId === 'tab-greeks') { calculateGreeksUI(); runScreenerUI(); loadSkewUI(); }
     }
 
     // --- Tab 4: Greeks & Screener UI Handlers ---
@@ -1433,6 +1466,130 @@
       } catch (err) {
         if (container) container.innerHTML = '<div style="color: var(--rose); padding: 15px; text-align: center;">Error screening strikes</div>';
       }
+    }
+
+    async function loadSkewUI() {
+      const spot = parseFloat(document.getElementById('scr-spot')?.value) || 24500;
+      const days = parseFloat(document.getElementById('scr-days')?.value) || 4;
+      const iv = (parseFloat(document.getElementById('scr-iv')?.value) || 15.5) / 100.0;
+      const container = document.getElementById('skew-points-table');
+
+      try {
+        const res = await fetch(`/api/greeks/skew?spot=${spot}&days_to_expiry=${days}&atm_iv=${iv}`);
+        const data = await res.json();
+        if (data.status === 'SUCCESS' && container) {
+          const atmK = Math.round(spot / 50) * 50;
+          let html = '<table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">' +
+            '<thead><tr style="color: var(--text-muted); border-bottom: 1px solid var(--card-border);">' +
+              '<th style="padding: 6px;">STRIKE</th>' +
+              '<th style="padding: 6px;">MONEYNESS</th>' +
+              '<th style="padding: 6px;">CLASS</th>' +
+              '<th style="padding: 6px;">IV (%)</th>' +
+              '<th style="padding: 6px;">SKEW DIFF</th>' +
+            '</tr></thead><tbody>';
+
+          data.points.forEach(pt => {
+            const isAtm = pt.strike === atmK;
+            const isPut = pt.strike < atmK;
+            const cls = isAtm ? '<span style="color:var(--cyan); font-weight:800;">★ ATM</span>' : (isPut ? '<span style="color:var(--rose);">OTM PUT</span>' : '<span style="color:var(--emerald);">OTM CALL</span>');
+            const diff = (pt.implied_volatility - iv) * 100.0;
+            const diffStr = (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
+            const diffColor = diff > 0 ? 'var(--rose)' : (diff < 0 ? 'var(--emerald)' : 'var(--text-muted)');
+
+            html += `<tr style="border-bottom: 1px solid #141c2b; ${isAtm ? 'background: rgba(0,229,255,0.06); font-weight:bold;' : ''}">` +
+              `<td style="padding: 6px; font-family: monospace; color: #fff;">${pt.strike}</td>` +
+              `<td style="padding: 6px; font-family: monospace; color: var(--text-muted);">${(pt.moneyness_ratio * 100).toFixed(1)}%</td>` +
+              `<td style="padding: 6px;">${cls}</td>` +
+              `<td style="padding: 6px; font-family: monospace; color: #fff; font-weight: 700;">${pt.iv_pct.toFixed(2)}%</td>` +
+              `<td style="padding: 6px; font-family: monospace; color: ${diffColor};">${diffStr}</td>` +
+            '</tr>';
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        }
+      } catch (err) {
+        if (container) container.innerHTML = '<div style="color: var(--rose); padding: 15px; text-align: center;">Error loading skew curve</div>';
+      }
+    }
+
+    // Quotes Filtering & Real-Time Formatting
+    let currentQuoteFilter = 'all';
+    let lastQuotesData = {};
+
+    function setQuoteFilter(filter) {
+      currentQuoteFilter = filter;
+      ['all', 'eligible', 'ce', 'pe'].forEach(f => {
+        const btn = document.getElementById('qf-' + f);
+        if (btn) {
+          if (f === filter) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
+      renderQuotes(lastQuotesData);
+    }
+
+    function renderQuotes(quotesData) {
+      lastQuotesData = quotesData;
+      const qList = document.getElementById('quotes-list');
+      if (!qList || !quotesData) return;
+
+      const spotMid = quotesData['NIFTY_SPOT'] ? quotesData['NIFTY_SPOT'].mid : 24500.0;
+      let items = Object.entries(quotesData).filter(([sym]) => sym !== 'NIFTY_SPOT');
+
+      // Filter
+      if (currentQuoteFilter === 'eligible') {
+        items = items.filter(([sym, q]) => q.ask <= 38.0 && q.ask >= 5.0);
+      } else if (currentQuoteFilter === 'ce') {
+        items = items.filter(([sym]) => sym.endsWith('_CE'));
+      } else if (currentQuoteFilter === 'pe') {
+        items = items.filter(([sym]) => sym.endsWith('_PE'));
+      }
+
+      // Sort by proximity to current spot price
+      items.sort(([symA], [symB]) => {
+        const partsA = symA.split('_');
+        const strikeA = parseFloat(partsA[2]) || 0;
+        const partsB = symB.split('_');
+        const strikeB = parseFloat(partsB[2]) || 0;
+        return Math.abs(strikeA - spotMid) - Math.abs(strikeB - spotMid);
+      });
+
+      // Show top 16 strikes
+      items = items.slice(0, 16);
+
+      if (items.length === 0) {
+        qList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted); background: #090e15; border-radius: 12px; border: 1px solid var(--card-border);">No option contracts match selected filter.</div>';
+        return;
+      }
+
+      let html = '';
+      for (const [sym, q] of items) {
+        const isCall = sym.endsWith('_CE');
+        const symColor = isCall ? 'var(--emerald)' : 'var(--accent-purple)';
+        const outlay = q.ask * 65;
+        const isEligible = q.ask <= 38.0 && outlay <= 2470.0;
+        const badgeHtml = isEligible
+          ? `<span class="tag-badge tag-feasible" style="font-size:9px; padding:2px 6px;">₹${Math.round(outlay)} SAFE</span>`
+          : `<span class="tag-badge tag-infeasible" style="font-size:9px; padding:2px 6px;">>₹38 CAP</span>`;
+
+        html += '<div class="serq-list-row">' +
+          '<div>' +
+            '<div style="display:flex; align-items:center; gap:6px;">' +
+              '<span class="row-sym-bold" style="color:' + symColor + '">' + sym + '</span>' +
+              badgeHtml +
+            '</div>' +
+            '<div class="row-sub-detail">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + ' | Imbal: ' + (q.imbalance * 100).toFixed(0) + '%</div>' +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<div style="text-align:right;">' +
+              '<div style="font-family:\'JetBrains Mono\',monospace; font-weight:800; font-size:13px;">₹' + q.mid.toFixed(2) + '</div>' +
+              '<div style="font-size:9px; color:var(--text-muted);">Outlay: ₹' + Math.round(outlay) + '</div>' +
+            '</div>' +
+            '<button class="btn-buy-serq" style="' + (isEligible ? '' : 'opacity:0.6; filter:grayscale(0.6);') + '" onclick="orderOption(\'' + sym + '\', \'BUY\', ' + q.ask + ')">BUY 65</button>' +
+          '</div>' +
+        '</div>';
+      }
+      qList.innerHTML = html;
     }
 
     // WebSocket Stream Connection
@@ -1704,29 +1861,15 @@
         const spot = data.quotes['NIFTY_SPOT'];
         if (spot) {
           const spEl = document.getElementById('spot-price');
-          if (spEl) spEl.innerText = spot.mid.toFixed(2);
-        }
-
-        const qList = document.getElementById('quotes-list');
-        if (qList) {
-          let html = '';
-          for (const [sym, q] of Object.entries(data.quotes)) {
-            if (sym === 'NIFTY_SPOT') continue;
-            const isCall = sym.endsWith('_CE');
-            const symColor = isCall ? 'var(--emerald)' : 'var(--accent-purple)';
-            html += '<div class="serq-list-row">' +
-              '<div>' +
-                '<div class="row-sym-bold" style="color:' + symColor + '">' + sym + '</div>' +
-                '<div class="row-sub-detail">Bid: ₹' + q.bid.toFixed(2) + ' | Ask: ₹' + q.ask.toFixed(2) + ' | Imbal: ' + (q.imbalance * 100).toFixed(0) + '%</div>' +
-              '</div>' +
-              '<div style="display:flex; align-items:center; gap:8px;">' +
-                '<span style="font-family:'JetBrains Mono',monospace; font-weight:800; font-size:13px;">₹' + q.mid.toFixed(2) + '</span>' +
-                '<button class="btn-buy-serq" onclick="orderOption('' + sym + '', 'BUY', ' + q.ask + ')">BUY 65</button>' +
-              '</div>' +
-            '</div>';
+          if (spEl) spEl.innerText = spot.mid.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          
+          // Auto-sync screener spot if not manually modified
+          const scrSpotInput = document.getElementById('scr-spot');
+          if (scrSpotInput && !scrSpotInput.dataset.modified) {
+            scrSpotInput.value = Math.round(spot.mid);
           }
-          qList.innerHTML = html;
         }
+        renderQuotes(data.quotes);
       }
 
       // 5. Positions
@@ -1873,15 +2016,23 @@ News Headlines Ingested: " + data.news_count);
     }
 
     async function testBuyOrder() {
+      if (lastQuotesData) {
+        for (const [sym, q] of Object.entries(lastQuotesData)) {
+          if (sym !== 'NIFTY_SPOT' && q.ask <= 38.0 && q.ask >= 10.0) {
+            orderOption(sym, 'BUY', q.ask);
+            return;
+          }
+        }
+      }
       const quotesResp = await fetch('/api/quotes');
       const quotes = await quotesResp.json();
       for (const [sym, q] of Object.entries(quotes)) {
-        if (sym.includes('_CE') && q.best_ask < 35.0) {
+        if (sym !== 'NIFTY_SPOT' && q.best_ask <= 38.0 && q.best_ask >= 10.0) {
           orderOption(sym, 'BUY', q.best_ask);
           return;
         }
       }
-      alert("No suitable option under ₹35 found in active quotes.");
+      alert("No suitable micro-capital option (≤ ₹38.00) found in current quotes.");
     }
 
     async function refreshArbitrage() {

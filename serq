@@ -280,18 +280,27 @@ else:
 cmd_feed() {
     banner
     python3 -c "
-from market_data.stream import market_streamer
-h = market_streamer.get_health()
+import urllib.request, json
+try:
+    req = urllib.request.urlopen('$URL/api/market-stream/status', timeout=2)
+    h = json.loads(req.read().decode('utf-8'))
+except Exception:
+    from market_data.stream import market_streamer
+    import dataclasses
+    h = dataclasses.asdict(market_streamer.get_health())
+
 print('\033[1m  LIVE MARKET DATA STREAM TELEMETRY:\033[0m')
-conn_badge = '\033[38;5;48m● ACTIVE\033[0m' if h.is_connected else '\033[38;5;214m⏸ STANDBY\033[0m'
-print(f'    Stream Status:      {conn_badge}')
-print(f'    Feed Mode:          \033[38;5;51m{h.mode}\033[0m')
-print(f'    Ticks Ingested:     {h.total_ticks_received}')
-print(f'    Stale Dropped:      {h.stale_ticks_dropped} (> 1,500ms max latency)')
-print(f'    Feed Latency:       {h.latency_ms:.1f} ms')
-print(f'    Reconnect Attempts: {h.reconnect_count}')
-print(f'    Active Subscriptions:{len(h.subscribed_symbols)}')
-for s in h.subscribed_symbols[:5]:
+is_conn = h.get('is_connected', False)
+conn_badge = '\033[38;5;48m● ACTIVE (STREAMING)\033[0m' if is_conn else '\033[38;5;214m⏸ STANDBY\033[0m'
+print(f'    Stream Status:       {conn_badge}')
+print(f'    Feed Mode:           \033[38;5;51m{h.get(\"mode\", \"SIMULATED_REPLAY\")}\033[0m')
+print(f'    Ticks Ingested:      \033[1m{h.get(\"total_ticks_received\", 0):,}\033[0m')
+print(f'    Stale Dropped:       {h.get(\"stale_ticks_dropped\", 0)} (> 1,500ms max latency)')
+print(f'    Feed Latency:        \033[38;5;48m{h.get(\"latency_ms\", 0.0):.1f} ms\033[0m')
+print(f'    Reconnect Attempts:  {h.get(\"reconnect_count\", 0)}')
+symbols = h.get('subscribed_symbols', [])
+print(f'    Active Subscriptions:\033[1m{len(symbols)}\033[0m instruments')
+for s in symbols[:6]:
     print(f'      • {s}')
 "
 }

@@ -67,6 +67,8 @@ class LiveMarketDataStreamer:
         now_ms = time.time() * 1000.0
         self._total_ticks += 1
         self._last_tick_time_ms = now_ms
+        self.subscribe_symbol(tick.symbol)
+        self.is_running = True
 
         # Staleness check
         staleness = stale_data_guard.check_tick(tick)

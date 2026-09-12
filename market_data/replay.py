@@ -39,21 +39,41 @@ class MarketDataReplayEngine:
             num_strikes=4
         )
 
-    def step_spot(self, dt: float = 1.0 / 375.0) -> float:
-        """Advance spot price by dt days using Geometric Brownian Motion with occasional jumps."""
+    def step_spot(self, dt: float = 1.0 / (375.0 * 20.0)) -> float:
+        """
+        Advance spot price by dt days using Geometric Brownian Motion with
+        mean-reversion towards base_spot and occasional jump shocks.
+        """
+        # Mean-reverting drift pull towards base_spot to maintain realistic intraday bounds
+        reversion_pull = -0.002 * (self.current_spot - self.base_spot)
+        effective_drift = self.drift + reversion_pull
+
         # Standard normal shock
         z = self.rng.gauss(0.0, 1.0)
         sigma = self.volatility
         
-        # 2% chance of a jump shock (breakout catalyst)
+        # 1% chance of a localized breakout jump
         jump = 0.0
-        if self.rng.random() < 0.02:
-            jump = self.rng.choice([-1, 1]) * self.rng.uniform(15.0, 45.0)
+        if self.rng.random() < 0.01:
+            jump = self.rng.choice([-1, 1]) * self.rng.uniform(5.0, 18.0)
 
-        # GBM step
-        ret = (self.drift - 0.5 * sigma ** 2) * dt + sigma * math.sqrt(dt) * z
-        self.current_spot = max(1000.0, self.current_spot * math.exp(ret) + jump)
-        return round(self.current_spot, 2)
+        # GBM step with scaled intraday dt
+        ret = (effective_drift - 0.5 * sigma ** 2) * dt + sigma * math.sqrt(dt) * z
+        self.current_spot = max(20000.0, min(29000.0, self.current_spot * math.exp(ret) + jump))
+        spot_rounded = round(self.current_spot, 2)
+
+        # Dynamically recenter contracts around ATM if spot moves past a strike interval
+        current_atm = round(spot_rounded / config.market.strike_interval) * config.market.strike_interval
+        if self.contracts:
+            center_k = self.contracts[len(self.contracts) // 2].strike
+            if abs(current_atm - center_k) >= config.market.strike_interval:
+                self.contracts = instrument_registry.generate_nifty_option_chain(
+                    spot_price=spot_rounded,
+                    expiry="2026-09-24",
+                    num_strikes=4
+                )
+
+        return spot_rounded
 
     def calculate_bsm_price(self, contract: OptionContract, spot: float, t_years: float = 7.0 / 365.0) -> float:
         """Black-Scholes analytical approximation for options pricing."""
