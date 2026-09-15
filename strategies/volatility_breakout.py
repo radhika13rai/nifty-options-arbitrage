@@ -26,8 +26,8 @@ class VolatilityBreakoutStrategy(BaseStrategy):
         name: str = "VOLATILITY_BREAKOUT_OTM",
         max_premium: float = 38.0,  # Max premium so 65 * 38 = ₹2,470 < ₹3,000
         min_premium: float = 12.0,  # Lower bound to avoid ultra-low delta decay traps
-        stop_loss_points: float = 1.6,  # 1.6 pts * 65 = ₹104 loss + ₹45 fees = ₹149 <= ₹150 cap
-        target_risk_reward: float = 2.5  # Target = 1.6 * 2.5 = 4.0 pts gain (₹260 gross - ₹45 fees = ₹215 net)
+        stop_loss_points: float = 1.5,  # 1.5 pts * 65 = ₹97.50 loss + ~₹51 fees = ₹148.50 <= ₹150 cap
+        target_risk_reward: float = 2.5  # Target = 1.5 * 2.5 = 3.75 pts gain
     ):
         super().__init__(name)
         self.max_premium = max_premium
@@ -40,6 +40,10 @@ class VolatilityBreakoutStrategy(BaseStrategy):
     def on_tick(self, tick: MarketTick) -> list[TradingSignal]:
         # Track price history
         self._last_prices[tick.symbol] = tick.ltp
+        from market_data.orderbook import orderbook_manager
+        snapshot = orderbook_manager.get_snapshot(tick.symbol)
+        if snapshot:
+            return self.on_orderbook(snapshot)
         return []
 
     def on_orderbook(self, snapshot: OrderbookSnapshot) -> list[TradingSignal]:
@@ -73,8 +77,8 @@ class VolatilityBreakoutStrategy(BaseStrategy):
             
             # Double check trade risk against ₹150 hard ceiling
             expected_loss_pts = ask - stop_loss
-            friction_est = cost_engine.calculate_order_costs("BUY", ask, self.lot_size).total_costs * 2
-            total_risk = (expected_loss_pts * self.lot_size) + friction_est
+            rt = cost_engine.calculate_round_trip("BUY", ask, stop_loss, self.lot_size)
+            total_risk = (expected_loss_pts * self.lot_size) + rt.total_friction
 
             if total_risk <= config.risk.max_trade_loss_inr:
                 sig = TradingSignal(
@@ -96,7 +100,7 @@ class VolatilityBreakoutStrategy(BaseStrategy):
                         "imbalance": snapshot.imbalance,
                         "spread": snapshot.spread,
                         "total_risk_inr": round(total_risk, 2),
-                        "hurdle_pts": round(friction_est / self.lot_size, 2)
+                        "hurdle_pts": round(rt.total_friction / self.lot_size, 2)
                     }
                 )
                 signals.append(sig)

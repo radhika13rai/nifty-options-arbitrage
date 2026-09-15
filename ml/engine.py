@@ -46,6 +46,12 @@ class AdaptiveMLStrategy(BaseStrategy):
             if tracker.ema9 and tracker.ema21:
                 slope = (tracker.ema9 - tracker.ema21) / tracker.ema21
                 self.learner.classify_regime(slope, tracker.atr)
+            return []
+
+        from market_data.orderbook import orderbook_manager
+        snapshot = orderbook_manager.get_snapshot(tick.symbol)
+        if snapshot:
+            return self.on_orderbook(snapshot)
         return []
 
     def on_orderbook(self, snapshot: OrderbookSnapshot) -> list[TradingSignal]:

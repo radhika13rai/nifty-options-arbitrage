@@ -62,7 +62,7 @@ def on_new_tick(tick):
     position_tracker.mark_to_market(tick.symbol, tick.ltp)
     
     # 2. Feed to rule-based strategy
-    vol_strategy.on_tick(tick)
+    rule_signals = vol_strategy.on_tick(tick) or []
 
     # 3. Dynamic Ratchet Trailing Stop & Auto Position Management
     try:
@@ -72,7 +72,8 @@ def on_new_tick(tick):
         pass
 
     # 4. Feed to self-learning ML strategy
-    signals = adaptive_ml_strategy.on_tick(tick)
+    ml_signals = adaptive_ml_strategy.on_tick(tick) or []
+    signals = rule_signals + ml_signals
 
     # 5. Autonomous signal execution dispatch
     if signals and auto_engine.is_auto_trading_enabled:
