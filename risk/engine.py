@@ -127,6 +127,17 @@ class PreTradeRiskEngine:
                             f"DAILY_LOSS_HEADROOM_EXCEEDED: Realized daily loss ₹{daily_realized_loss_inr:.2f} + potential trade loss ₹{total_potential_risk:.2f} exceeds daily loss ceiling ₹{self.limits.max_daily_loss_inr:.2f}"
                         )
 
+                    # 7c. Capital floor headroom check
+                    # Pre-trade rejection if current cash minus potential trade risk breaches the capital floor
+                    if current_cash_inr <= self.limits.capital_floor_inr:
+                        violations.append(
+                            f"CAPITAL_FLOOR_REACHED: Available cash ₹{current_cash_inr:.2f} is at or below non-negotiable floor ₹{self.limits.capital_floor_inr:.2f}"
+                        )
+                    elif (current_cash_inr - total_potential_risk) < self.limits.capital_floor_inr:
+                        violations.append(
+                            f"CAPITAL_FLOOR_HEADROOM_EXCEEDED: Current cash ₹{current_cash_inr:.2f} minus potential trade loss ₹{total_potential_risk:.2f} would breach non-negotiable capital floor ₹{self.limits.capital_floor_inr:.2f}"
+                        )
+
             if violations:
                 return RiskCheckResult(
                     passed=False,

@@ -8,12 +8,14 @@ Executes unattended, multi-day/multi-week paper trading cycles to validate:
   5. Online learning engine weight convergence and model drift protection
 """
 
+import argparse
 import asyncio
 import dataclasses
 import logging
 import math
 import os
 import random
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -275,7 +277,7 @@ class ProceduralScenarioGenerator:
             if take_trade:
                 archetype = self._rng.choices(["FAILED_BREAKOUT", "SIDEWAYS_CHOP"], weights=[0.70, 0.30])[0]
                 headline = "Intraday Consolidation Tests Support; False Breakout Probe Attempted"
-                title = f"Chop False Breakout Probe (Day {day_number})"
+                title = f"Chop False Breakout Attempt (Day {day_number})"
                 features = [
                     round(self._rng.uniform(0.35, 0.45), 2),
                     round(self._rng.uniform(0.12, 0.22), 2),
@@ -662,3 +664,50 @@ class PaperSoakRunner:
 
 # Global singleton instance
 soak_runner = PaperSoakRunner()
+
+
+async def main():
+    parser = argparse.ArgumentParser(description="Continuous Paper Soak & Monte Carlo Stress Runner")
+    parser.add_argument("--days", type=int, default=30, help="Number of simulated trading days (default: 30)")
+    parser.add_argument("--monte-carlo", type=int, default=0, help="Number of Monte Carlo paths (0 to disable)")
+    parser.add_argument("--seed", type=int, default=42, help="RNG seed for procedural generation")
+    parser.add_argument("--interval", type=float, default=0.01, help="Interval seconds between days")
+    args = parser.parse_args()
+
+    runner = PaperSoakRunner()
+    if args.monte_carlo > 0:
+        print(f"Executing Monte Carlo stress analysis: {args.monte_carlo} paths x {args.days} days...")
+        summary = await runner.run_monte_carlo(num_paths=args.monte_carlo, days_per_path=args.days, interval_sec=args.interval)
+        print("\n================================================================================")
+        print(f"  MONTE CARLO EMPIRICAL DISTRIBUTION ({summary['num_paths']} Paths x {summary['days_per_path']} Days)")
+        print("================================================================================")
+        print(f"  • Mean Net Return        : {summary['mean_return_pct']:+.2f}%")
+        print(f"  • Return Range (Min/Max) : [{summary['min_return_pct']:+.2f}%, {summary['max_return_pct']:+.2f}%]")
+        print(f"  • Mean Max Drawdown      : {summary['mean_drawdown_pct']:.2f}% (Worst: {summary['worst_drawdown_pct']:.2f}%)")
+        print(f"  • Mean Win Rate          : {summary['mean_win_rate_pct']:.1f}%")
+        print(f"  • Capital Floor Integrity: {'PRESERVED across ALL paths' if summary['all_capital_floors_preserved'] else 'BREACHED'}")
+        print("================================================================================\n")
+    else:
+        print(f"Executing Continuous Paper Soak: {args.days} days (Seed={args.seed})...")
+        met = await runner.run(max_days=args.days, interval_sec=args.interval, seed=args.seed)
+        print("\n================================================================================")
+        print(f"  CONTINUOUS PAPER SOAK SCORECARD ({met.days_completed} Days Completed)")
+        print("================================================================================")
+        print(f"  • Starting Capital       : ₹{met.initial_capital:,.2f}")
+        print(f"  • Ending Capital         : ₹{met.current_capital:,.2f}")
+        print(f"  • Cumulative Net PnL     : ₹{met.cumulative_net_pnl:+,.2f} ({met.net_return_pct:+.2f}%)")
+        print(f"  • Total Trades           : {met.total_trades} (Wins: {met.winning_trades}, Losses: {met.losing_trades}, BE: {met.breakeven_trades})")
+        print(f"  • Win Rate               : {met.win_rate_pct:.1f}%")
+        print(f"  • Net Profit Factor      : {met.profit_factor:.2f}")
+        print(f"  • Max Drawdown           : {met.max_drawdown_pct:.2f}%")
+        print(f"  • Lowest Capital Seen    : ₹{met.min_capital_seen:,.2f} (Floor: ₹2,000.00)")
+        print(f"  • Capital Floor Status   : {'PASS (Preserved)' if met.capital_floor_preserved else 'FAIL (Breached)'}")
+        print(f"  • Invariants Respected   : {'PASS (100% compliant)' if met.invariants_respected else 'FAIL'}")
+        print(f"  • SQLite Checkpoints     : {met.checkpoints_executed} executed")
+        print(f"  • Drift Rollbacks        : {met.drift_rollbacks_count}")
+        print("================================================================================\n")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+

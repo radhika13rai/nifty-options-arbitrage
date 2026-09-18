@@ -121,3 +121,26 @@ def test_reject_daily_loss_headroom_exceeded():
     assert res.passed is False
     assert any("DAILY_LOSS_HEADROOM_EXCEEDED" in v for v in res.violations)
 
+
+def test_reject_capital_floor_headroom_exceeded():
+    """Verify new orders are rejected if potential trade loss would breach non-negotiable ₹2,000 floor."""
+    engine = PreTradeRiskEngine()
+    req = PreTradeOrderRequest(
+        symbol="NIFTY_TEST_CE",
+        side="BUY",
+        order_type="MARKET",
+        price=20.0,
+        quantity=65,
+        stop_loss_price=17.70  # ₹149.50 risk + ~₹52 fees = ~₹201.50 total potential loss
+    )
+    # 1. Reject if cash is already at or below floor
+    res_at_floor = engine.validate_order(req, current_cash_inr=2000.0, daily_realized_loss_inr=0.0)
+    assert res_at_floor.passed is False
+    assert any("CAPITAL_FLOOR_REACHED" in v for v in res_at_floor.violations)
+
+    # 2. Reject if cash is ₹2,100 (potential loss would leave ₹1,898.50, breaching ₹2,000 floor)
+    res_headroom = engine.validate_order(req, current_cash_inr=2100.0, daily_realized_loss_inr=0.0)
+    assert res_headroom.passed is False
+    assert any("CAPITAL_FLOOR_HEADROOM_EXCEEDED" in v for v in res_headroom.violations)
+
+

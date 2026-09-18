@@ -109,6 +109,20 @@ class AutoExecutionEngine:
             )
             return None
 
+        # Capital floor headroom invariant check (₹2,000 floor)
+        current_capital = pnl_manager.cash_balance
+        capital_floor = config.risk.capital_floor_inr
+        if current_capital <= capital_floor:
+            logger.warning(
+                f"AutoExecutionEngine: Pre-trade rejection: Current capital ₹{current_capital:.2f} is at or below non-negotiable floor ₹{capital_floor:.2f}"
+            )
+            return None
+        if (current_capital - max_trade_risk) < capital_floor:
+            logger.warning(
+                f"AutoExecutionEngine: Pre-trade rejection: Capital floor headroom exceeded (capital ₹{current_capital:.2f} - trade risk ₹{max_trade_risk:.2f} < floor ₹{capital_floor:.2f})"
+            )
+            return None
+
         if not signal.is_capital_feasible or signal.action != "BUY":
             return None
 
