@@ -103,3 +103,21 @@ def test_kill_switch_hmac_cryptographic_verification():
     valid_hmac = kill_switch.generate_reset_token()
     kill_switch.reset(valid_hmac)
     assert kill_switch.is_engaged is False
+
+
+def test_reject_daily_loss_headroom_exceeded():
+    """Verify new orders are rejected if remaining daily loss budget cannot absorb the potential trade risk."""
+    engine = PreTradeRiskEngine()
+    req = PreTradeOrderRequest(
+        symbol="NIFTY_TEST_CE",
+        side="BUY",
+        order_type="MARKET",
+        price=20.0,
+        quantity=65,
+        stop_loss_price=17.70  # ₹149.50 risk
+    )
+    # With daily realized loss of ₹200.00, adding ₹149.50 + fees would exceed ₹300.00 ceiling
+    res = engine.validate_order(req, current_cash_inr=2800.0, daily_realized_loss_inr=200.0)
+    assert res.passed is False
+    assert any("DAILY_LOSS_HEADROOM_EXCEEDED" in v for v in res.violations)
+

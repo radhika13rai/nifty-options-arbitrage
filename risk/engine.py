@@ -119,6 +119,14 @@ class PreTradeRiskEngine:
                             f"Trade risk ₹{potential_trade_loss:.2f} exceeds max allowed ₹{self.limits.max_trade_loss_inr:.2f} per trade"
                         )
 
+                    # 7b. Daily risk budget headroom check
+                    # Pre-trade rejection if realized loss + max potential trade risk exceeds daily limit
+                    total_potential_risk = potential_trade_loss + breakdown.total_costs
+                    if (daily_realized_loss_inr + total_potential_risk) > self.limits.max_daily_loss_inr:
+                        violations.append(
+                            f"DAILY_LOSS_HEADROOM_EXCEEDED: Realized daily loss ₹{daily_realized_loss_inr:.2f} + potential trade loss ₹{total_potential_risk:.2f} exceeds daily loss ceiling ₹{self.limits.max_daily_loss_inr:.2f}"
+                        )
+
             if violations:
                 return RiskCheckResult(
                     passed=False,

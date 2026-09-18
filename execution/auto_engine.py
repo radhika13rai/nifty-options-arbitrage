@@ -22,6 +22,7 @@ from costs.transaction_costs import cost_engine
 from ml.learner import learning_engine
 from ml.drift_guard import drift_guard
 from database.db import db_manager
+from config import config
 
 logger = logging.getLogger("AutoExecutionEngine")
 
@@ -92,6 +93,20 @@ class AutoExecutionEngine:
         Under the ₹3,000 capital baseline, only 1 position (65 units) is allowed at any time.
         """
         if not self.is_auto_trading_enabled:
+            return None
+
+        # Daily loss ceiling & headroom invariant check
+        pnl_rep = pnl_manager.generate_report()
+        if pnl_rep.is_daily_limit_breached or pnl_rep.net_pnl <= -config.risk.max_daily_loss_inr:
+            logger.warning("AutoExecutionEngine: Daily loss limit reached. Auto-trade entry blocked.")
+            return None
+
+        daily_loss = max(0.0, -pnl_rep.gross_realized_pnl + pnl_rep.total_friction_inr)
+        max_trade_risk = (2.30 * signal.quantity) + 52.02
+        if (daily_loss + max_trade_risk) > config.risk.max_daily_loss_inr:
+            logger.warning(
+                f"AutoExecutionEngine: Pre-trade rejection: Daily loss headroom exceeded (daily loss ₹{daily_loss:.2f} + trade risk ₹{max_trade_risk:.2f} > ₹{config.risk.max_daily_loss_inr:.2f})"
+            )
             return None
 
         if not signal.is_capital_feasible or signal.action != "BUY":
