@@ -39,6 +39,7 @@ class ScreenedStrike:
     ask: float
     spread: float
     spread_pct: float
+    gamma_theta_ratio: float  # Gamma convexity vs Theta decay efficiency (Γ * 1000 / |Θ|)
     quality_score: float  # 0.0 to 100.0
     is_eligible: bool
     rejection_reasons: List[str] = field(default_factory=list)
@@ -176,26 +177,32 @@ class StrikeScreener:
 
         is_eligible = len(rejection_reasons) == 0
 
+        # Compute Gamma / Theta convexity efficiency
+        gamma_theta_ratio = round((greeks.gamma * 1000.0) / max(0.20, abs_theta_day), 4)
+
         # Compute Institutional Quality Score (0 to 100)
         quality_score = 0.0
         if is_eligible:
-            # 1. Delta sweet spot score (up to 40 pts)
+            # 1. Delta sweet spot score (up to 35 pts)
             delta_diff = abs(abs_delta - self.target_delta)
-            delta_score = max(0.0, 1.0 - (delta_diff / 0.075)) * 40.0
+            delta_score = max(0.0, 1.0 - (delta_diff / 0.075)) * 35.0
 
-            # 2. Theta efficiency score: Delta gain per unit of daily Theta loss (up to 30 pts)
+            # 2. Theta efficiency score: Delta gain per unit of daily Theta loss (up to 25 pts)
             theta_ratio = abs_delta / max(0.20, abs_theta_day)
-            theta_score = min(30.0, theta_ratio * 150.0)
+            theta_score = min(25.0, theta_ratio * 125.0)
 
-            # 3. Capital preservation score: Headroom buffer (up to 20 pts)
+            # 3. Gamma convexity acceleration: Gamma per unit of Theta decay (up to 15 pts)
+            gamma_score = min(15.0, gamma_theta_ratio * 30.0)
+
+            # 4. Capital preservation score: Headroom buffer (up to 15 pts)
             affordability_score = (
                 max(0.0, (self.max_premium_inr - market_price) / (self.max_premium_inr - self.min_premium_inr))
-            ) * 20.0
+            ) * 15.0
 
-            # 4. Spread tightness score (up to 10 pts)
+            # 5. Spread tightness score (up to 10 pts)
             spread_score = max(0.0, 1.0 - (spread / self.max_spread_pts)) * 10.0
 
-            quality_score = round(delta_score + theta_score + affordability_score + spread_score, 2)
+            quality_score = round(delta_score + theta_score + gamma_score + affordability_score + spread_score, 2)
         else:
             delta_diff = abs(abs_delta - self.target_delta)
             quality_score = max(0.0, round((1.0 - min(1.0, delta_diff / 0.20)) * 20.0, 2))
@@ -215,6 +222,7 @@ class StrikeScreener:
             ask=round(ask, 2),
             spread=spread,
             spread_pct=spread_pct,
+            gamma_theta_ratio=gamma_theta_ratio,
             quality_score=quality_score,
             is_eligible=is_eligible,
             rejection_reasons=rejection_reasons
