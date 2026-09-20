@@ -6,7 +6,14 @@
 
 set -e
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve real directory even when called via symlink
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 cd "$DIR"
 
 PID_FILE="$DIR/.serq.pid"
@@ -17,6 +24,16 @@ HOST="0.0.0.0"
 URL="http://localhost:$PORT"
 
 mkdir -p "$LOG_DIR"
+
+# Python interpreter detection & environment setup
+if [ -x "/data/data/com.termux/files/usr/bin/python3" ]; then
+    PYTHON="/data/data/com.termux/files/usr/bin/python3"
+elif [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/python3" ]; then
+    PYTHON="$VIRTUAL_ENV/bin/python3"
+else
+    PYTHON="$(which python3)"
+fi
+export PYTHONPATH="$DIR:$PYTHONPATH"
 
 # Color tokens
 C_RESET="\033[0m"
@@ -64,7 +81,7 @@ cmd_start() {
     echo -e "${C_GRAY}Starting background SerQ server on $HOST:$PORT...${C_RESET}"
     
     # Launch uvicorn in a new detached session immune to terminal closure
-    setsid nohup python3 -m uvicorn api.app:app --host "$HOST" --port "$PORT" >> "$LOG_FILE" 2>&1 &
+    setsid nohup "$PYTHON" -m uvicorn api.app:app --host "$HOST" --port "$PORT" >> "$LOG_FILE" 2>&1 &
     sleep 0.5
     PID=$(pgrep -f "uvicorn api.app:app" | head -n 1 || echo $!)
     echo "$PID" > "$PID_FILE"
@@ -153,7 +170,7 @@ cmd_status() {
         AUTO_JSON=$(curl -s "$URL/api/auto-trade/status" 2>/dev/null || echo "{}")
         SCHED_JSON=$(curl -s "$URL/api/scheduler/status" 2>/dev/null || echo "{}")
 
-        python3 -c "
+        "$PYTHON" -c "
 import json
 
 try:
@@ -216,20 +233,20 @@ cmd_logs() {
 
 cmd_test() {
     banner
-    echo -e "${C_GRAY}Executing test suite (python3 -m pytest tests/ -v)...${C_RESET}\n"
-    python3 -m pytest tests/ -v
+    echo -e "${C_GRAY}Executing test suite ("$PYTHON" -m pytest tests/ -v)...${C_RESET}\n"
+    "$PYTHON" -m pytest tests/ -v
 }
 
 cmd_backtest() {
     banner
     echo -e "${C_GRAY}Executing 10-Day Historical Walk-Forward Simulation (Paper V2)...${C_RESET}\n"
-    python3 -m simulation.walk_forward
+    "$PYTHON" -m simulation.walk_forward
 }
 
 cmd_simulate() {
     banner
     echo -e "${C_GRAY}Running offline trading day simulation...${C_RESET}\n"
-    python3 simulate_trading_day.py
+    "$PYTHON" simulate_trading_day.py
 }
 
 cmd_square_off() {
@@ -256,7 +273,7 @@ cmd_kill() {
 
 cmd_drift() {
     banner
-    python3 -c "
+    "$PYTHON" -c "
 from ml.drift_guard import drift_guard
 status = drift_guard.check_drift()
 print('\033[1m  AI MODEL DRIFT & OVERFITTING TELEMETRY:\033[0m')
@@ -284,7 +301,7 @@ else:
 
 cmd_feed() {
     banner
-    python3 -c "
+    "$PYTHON" -c "
 import urllib.request, json
 try:
     req = urllib.request.urlopen('$URL/api/market-stream/status', timeout=2)
@@ -312,7 +329,7 @@ for s in symbols[:6]:
 
 cmd_slippage() {
     banner
-    python3 -c "
+    "$PYTHON" -c "
 from costs.slippage import slippage_model
 t = slippage_model.get_telemetry()
 print('\033[1m  MICROSTRUCTURE SLIPPAGE & QUEUE PRIORITY ENGINE (PAPER V2):\033[0m')
@@ -337,7 +354,7 @@ cmd_soak() {
     DAYS=${2:-20}
     INTERVAL=${3:-0.05}
     SEED_ARG=${4:-}
-    python3 -c "
+    "$PYTHON" -c "
 import asyncio
 from simulation.soak_runner import soak_runner
 
@@ -391,7 +408,7 @@ cmd_monte_carlo() {
     banner
     PATHS=${2:-5}
     DAYS=${3:-10}
-    python3 -c "
+    "$PYTHON" -c "
 import asyncio
 from simulation.soak_runner import soak_runner
 
@@ -417,7 +434,7 @@ asyncio.run(run())
 
 cmd_stress() {
     banner
-    python3 -c "
+    "$PYTHON" -c "
 import asyncio
 from simulation.stress_test import adversarial_tester
 
@@ -434,7 +451,7 @@ cmd_greeks() {
     IV="${4:-0.155}"
     TYPE="${5:-CE}"
 
-    python3 -c "
+    "$PYTHON" -c "
 from analytics.greeks import calculate_all_greeks, calculate_implied_volatility
 
 spot = float('$SPOT')
@@ -475,7 +492,7 @@ cmd_screener() {
     DAYS="${3:-4}"
     IV="${4:-0.155}"
 
-    python3 -c "
+    "$PYTHON" -c "
 from analytics.strike_screener import strike_screener
 
 spot = float('$SPOT')
@@ -523,7 +540,7 @@ cmd_skew() {
     DAYS="${2:-4}"
     ATM_IV="${3:-0.155}"
 
-    python3 -c "
+    "$PYTHON" -c "
 from analytics.volatility_surface import volatility_surface
 
 spot = float('$SPOT')
