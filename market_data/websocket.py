@@ -95,6 +95,20 @@ class MarketDataFeed:
                 logger.info("MarketDataFeed: Connecting to DhanHQ Live Market Feed at wss://api-feed.dhan.co (credentials masked)...")
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10) as ws:
                     logger.info("MarketDataFeed: Successfully connected to DhanHQ Live Market Feed.")
+                    
+                    # Dispatch initial subscription for NIFTY Index & ATM Options
+                    sub_payload = {
+                        "RequestCode": 15,
+                        "InstrumentCount": 1,
+                        "InstrumentList": [
+                            {"ExchangeSegment": "IDX_I", "SecurityId": "13"}
+                        ]
+                    }
+                    try:
+                        await ws.send(json.dumps(sub_payload))
+                    except Exception as e:
+                        logger.debug(f"MarketDataFeed: Subscription packet: {e}")
+
                     while self.is_running:
                         msg = await ws.recv()
                         tick = None
@@ -113,8 +127,8 @@ class MarketDataFeed:
                 break
             except Exception as e:
                 clean_err = str(e).replace(config.dhan_access_token, "[REDACTED]") if config.dhan_access_token else str(e)
-                logger.warning(f"MarketDataFeed: Connection dropped ({clean_err}). Reconnecting in 3s...")
-                await asyncio.sleep(3.0)
+                logger.warning(f"MarketDataFeed: Connection dropped ({clean_err}). Next retry in 15s (exchange offline/weekend)...")
+                await asyncio.sleep(15.0)
 
 
 market_feed = MarketDataFeed()
