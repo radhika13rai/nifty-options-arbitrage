@@ -61,6 +61,7 @@ def test_stale_tick_dropped_by_guard(streamer):
 @pytest.mark.anyio
 async def test_streamer_lifecycle():
     s = LiveMarketDataStreamer()
+    s._has_live_credentials = False
     received = []
     s.add_tick_listener(lambda t: received.append(t))
 

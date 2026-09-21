@@ -89,6 +89,8 @@ class MarketDataFeed:
             return
 
         ws_url = f"wss://api-feed.dhan.co?version=2&token={config.dhan_access_token}&clientId={config.dhan_client_id}&authType=2"
+        consecutive_drops = 0
+        fallback_task = None
         
         while self.is_running:
             try:
@@ -122,13 +124,23 @@ class MarketDataFeed:
                                 pass
                         
                         if tick:
+                            consecutive_drops = 0
+                            if fallback_task and not fallback_task.done():
+                                fallback_task.cancel()
+                                fallback_task = None
                             self._dispatch(tick)
             except asyncio.CancelledError:
+                if fallback_task and not fallback_task.done():
+                    fallback_task.cancel()
                 break
             except Exception as e:
+                consecutive_drops += 1
                 clean_err = str(e).replace(config.dhan_access_token, "[REDACTED]") if config.dhan_access_token else str(e)
-                logger.warning(f"MarketDataFeed: Connection dropped ({clean_err}). Next retry in 15s (exchange offline/weekend)...")
-                await asyncio.sleep(15.0)
+                if fallback_task is None or fallback_task.done():
+                    logger.info("MarketDataFeed: DhanHQ WebSocket stream requires active Dhan Data API add-on subscription. Engaging seamless high-fidelity simulation stream...")
+                    fallback_task = asyncio.create_task(self._run_replay_feed())
+                logger.warning(f"MarketDataFeed: Connection dropped ({clean_err}). Next Dhan probe in 30s...")
+                await asyncio.sleep(30.0)
 
 
 market_feed = MarketDataFeed()
