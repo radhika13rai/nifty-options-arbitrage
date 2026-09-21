@@ -100,7 +100,7 @@ class LiveMacroPoller:
                 "dxy": (103.95, 0.15),
                 "vix": (15.20, 2.10),
                 "sp500": (5850.0, 0.45),
-                "nifty": (24500.0, 0.25)
+                "nifty": (23414.3, 0.29)
             }
 
         results = {}
@@ -124,7 +124,7 @@ class LiveMacroPoller:
                     "dxy": (103.80, 0.0),
                     "vix": (14.50, 0.0),
                     "sp500": (5800.0, 0.0),
-                    "nifty": (24500.0, 0.0)
+                    "nifty": (23414.3, 0.0)
                 }
                 results[key] = fallback_defaults[key]
 
@@ -200,7 +200,16 @@ class LiveMacroPoller:
             dxy_val, dxy_chg = quotes.get("dxy", (103.80, 0.0))
             vix_val, vix_chg = quotes.get("vix", (14.50, 0.0))
             sp500_price, sp500_chg = quotes.get("sp500", (5800.0, 0.0))
-            nifty_price, nifty_chg = quotes.get("nifty", (24500.0, 0.0))
+            nifty_price, nifty_chg = quotes.get("nifty", (23414.3, 0.0))
+
+            # Automatically sync options chain and base spot to real NIFTY level
+            if nifty_price > 10000.0:
+                try:
+                    from market_data.replay import replay_engine
+                    if abs(replay_engine.base_spot - nifty_price) > 5.0:
+                        replay_engine.sync_spot_price(nifty_price)
+                except Exception as e:
+                    logger.debug(f"Failed to sync replay engine spot: {e}")
 
             # Estimate GIFT NIFTY gap from US/world momentum & crude shock
             # High crude + high DXY hurts NIFTY; positive S&P aids NIFTY

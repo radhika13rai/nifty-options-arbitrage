@@ -21,6 +21,7 @@ class MarketDataFeed:
 
     def __init__(self):
         self.is_running: bool = False
+        self.is_live_connected: bool = False
         self._subscribers: list[Callable[[MarketTick], None]] = []
         self._task: Optional[asyncio.Task] = None
         self.use_live_broker: bool = bool(config.dhan_client_id and config.dhan_access_token)
@@ -124,16 +125,19 @@ class MarketDataFeed:
                                 pass
                         
                         if tick:
+                            self.is_live_connected = True
                             consecutive_drops = 0
                             if fallback_task and not fallback_task.done():
                                 fallback_task.cancel()
                                 fallback_task = None
                             self._dispatch(tick)
             except asyncio.CancelledError:
+                self.is_live_connected = False
                 if fallback_task and not fallback_task.done():
                     fallback_task.cancel()
                 break
             except Exception as e:
+                self.is_live_connected = False
                 consecutive_drops += 1
                 clean_err = str(e).replace(config.dhan_access_token, "[REDACTED]") if config.dhan_access_token else str(e)
                 if fallback_task is None or fallback_task.done():

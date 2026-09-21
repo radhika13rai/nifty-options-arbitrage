@@ -112,6 +112,9 @@ async def get_system_status(request):
 
     return JSONResponse({
         "execution_mode": config.execution_mode,
+        "is_market_open": market_scheduler.is_trading_permitted,
+        "market_phase": market_scheduler.current_phase.value,
+        "real_nifty_spot": live_macro_poller.last_fetched_quotes.get("nifty", (23414.3, 0.0))[0],
         "kill_switch": {
             "is_engaged": ks.is_engaged,
             "reason": ks.reason,
@@ -383,9 +386,18 @@ async def websocket_stream(websocket: WebSocket):
                     "age_ms": round(s.age_ms, 1)
                 }
 
+            nifty_quote = live_macro_poller.last_fetched_quotes.get("nifty", (23414.3, 0.29))
+            is_market_open = market_scheduler.is_trading_permitted
+            curr_phase = market_scheduler.current_phase.value
+
             payload = {
                 "type": "STREAM_UPDATE",
                 "timestamp": time.time(),
+                "is_market_open": is_market_open,
+                "market_phase": curr_phase,
+                "real_nifty_spot": nifty_quote[0],
+                "real_nifty_change_pct": nifty_quote[1],
+                "dhan_status": "CONNECTED" if getattr(market_feed, "is_live_connected", False) else "STANDBY_FALLBACK",
                 "kill_switch": {
                     "is_engaged": ks.is_engaged,
                     "reason": ks.reason

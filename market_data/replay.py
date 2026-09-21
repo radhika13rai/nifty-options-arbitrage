@@ -18,7 +18,7 @@ class MarketDataReplayEngine:
 
     def __init__(
         self,
-        base_spot: float = 24500.0,
+        base_spot: float = 23414.0,
         volatility: float = 0.15,
         drift: float = 0.0,
         seed: int = 42
@@ -39,11 +39,30 @@ class MarketDataReplayEngine:
             num_strikes=10
         )
 
+    def sync_spot_price(self, real_spot: float) -> None:
+        """Synchronizes replay base spot with real-world NIFTY index price."""
+        if real_spot <= 1000.0:
+            return
+        self.base_spot = round(real_spot, 2)
+        self.current_spot = round(real_spot, 2)
+        self.contracts = instrument_registry.generate_nifty_option_chain(
+            spot_price=self.base_spot,
+            expiry="2026-09-24",
+            num_strikes=10
+        )
+
     def step_spot(self) -> float:
         """
         Advance spot price tick-by-tick with realistic intraday variance.
-        Spot oscillates gently around base_spot with realistic ±0.50 to ±1.50 pt micro-ticks.
+        If market is closed, spot remains frozen at official session close.
         """
+        try:
+            from scheduler.daily_routine import market_scheduler, MarketPhase
+            if market_scheduler.current_phase in (MarketPhase.MARKET_CLOSED, MarketPhase.POST_MARKET_LEARN):
+                return self.current_spot
+        except Exception:
+            pass
+
         # Mean reversion pull towards base_spot to maintain realistic trading corridor
         reversion = -0.015 * (self.current_spot - self.base_spot)
         # Micro tick noise: standard tick shock ~0.65 pts
@@ -115,11 +134,19 @@ class MarketDataReplayEngine:
         )
         ticks.append(spot_tick)
 
+        # Check if market is currently closed or in stand-down
+        is_market_closed = False
+        try:
+            from scheduler.daily_routine import market_scheduler, MarketPhase
+            is_market_closed = market_scheduler.current_phase in (MarketPhase.MARKET_CLOSED, MarketPhase.POST_MARKET_LEARN)
+        except Exception:
+            pass
+
         # 2. Options Contract Ticks
         for contract in self.contracts:
             bsm_price = self.calculate_bsm_price(contract, spot)
-            # Add small random micro-spread and noise
-            noise = self.rng.uniform(-0.15, 0.15)
+            # Add small random micro-spread and noise only during active market
+            noise = 0.0 if is_market_closed else self.rng.uniform(-0.15, 0.15)
             mid = max(0.10, round(bsm_price + noise, 2))
             spread = max(0.10, round(min(1.50, mid * 0.02), 2))
             
@@ -136,12 +163,20 @@ class MarketDataReplayEngine:
         return ticks
 
     async def stream_ticks(self, interval_sec: float = 0.25) -> AsyncGenerator[list[MarketTick], None]:
-        """Asynchronous tick generator yielding simulated real-time ticks."""
+        """Asynchronous tick generator yielding market ticks (throttled when market closed)."""
         import asyncio
         while True:
             batch = self.generate_tick_batch()
             yield batch
-            await asyncio.sleep(interval_sec)
+            
+            # During market closed/stand-down, throttle emission to 3.0s to avoid unnecessary processing
+            try:
+                from scheduler.daily_routine import market_scheduler, MarketPhase
+                closed = market_scheduler.current_phase in (MarketPhase.MARKET_CLOSED, MarketPhase.POST_MARKET_LEARN)
+            except Exception:
+                closed = False
+
+            await asyncio.sleep(3.0 if closed else interval_sec)
 
 
 replay_engine = MarketDataReplayEngine()

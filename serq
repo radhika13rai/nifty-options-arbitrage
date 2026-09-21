@@ -442,11 +442,24 @@ asyncio.run(adversarial_tester.run_adversarial_suite(verbose=True))
 "
 }
 
+get_synced_spot() {
+    local default_spot="23414.0"
+    local synced
+    synced=$(curl -s http://localhost:8000/api/status 2>/dev/null | grep -o '"real_nifty_spot":[^,]*' | cut -d: -f2 | tr -d ' ' || true)
+    if [ -n "$synced" ] && [ "$synced" != "null" ]; then
+        echo "$synced"
+    else
+        echo "$default_spot"
+    fi
+}
+
 cmd_greeks() {
     banner
     shift || true
-    SPOT="${1:-24500}"
-    STRIKE="${2:-24700}"
+    local def_spot
+    def_spot=$(get_synced_spot)
+    SPOT="${1:-$def_spot}"
+    STRIKE="${2:-23500}"
     DAYS="${3:-4}"
     IV="${4:-0.155}"
     TYPE="${5:-CE}"
@@ -487,7 +500,9 @@ print('\033[1m' + '═' * 66 + '\033[0m')
 cmd_screener() {
     banner
     shift || true
-    SPOT="${1:-24500}"
+    local def_spot
+    def_spot=$(get_synced_spot)
+    SPOT="${1:-$def_spot}"
     BIAS="${2:-BULLISH}"
     DAYS="${3:-4}"
     IV="${4:-0.155}"
@@ -536,7 +551,9 @@ print('\033[1m' + '═' * 74 + '\033[0m')
 cmd_skew() {
     banner
     shift || true
-    SPOT="${1:-24500}"
+    local def_spot
+    def_spot=$(get_synced_spot)
+    SPOT="${1:-$def_spot}"
     DAYS="${2:-4}"
     ATM_IV="${3:-0.155}"
 
