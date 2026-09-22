@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+import os
+
+html_content = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1790,3 +1792,9 @@
   </script>
 </body>
 </html>
+'''
+
+with open("/root/nifty-options-arbitrage/dashboard/index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("SUCCESS: Google Finance aesthetic dashboard built.")

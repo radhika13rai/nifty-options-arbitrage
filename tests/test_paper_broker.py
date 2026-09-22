@@ -62,6 +62,9 @@ def test_paper_sell_execution():
             spread=0.40
         )
         orderbook_manager.update_tick(tick)
+        # Pre-seed open long position so this is a valid closing sell order
+        from portfolio.positions import position_tracker
+        position_tracker.apply_fill(symbol=symbol, side="BUY", price=30.0, quantity=65)
 
         req = BrokerOrderRequest(
             symbol=symbol,

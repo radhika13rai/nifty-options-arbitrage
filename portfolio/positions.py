@@ -51,7 +51,7 @@ class PositionTracker:
         side: Literal["BUY", "SELL"],
         price: float,
         quantity: int,
-        order_costs: float
+        order_costs: float = 0.0
     ) -> Position:
         """Updates portfolio state following an order execution."""
         pos = self._positions.get(symbol)

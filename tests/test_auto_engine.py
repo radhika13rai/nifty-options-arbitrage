@@ -15,6 +15,7 @@ from market_data.orderbook import orderbook_manager
 from portfolio.pnl import pnl_manager
 from database.db import db_manager
 from ml.learner import learning_engine
+from portfolio.positions import position_tracker
 
 
 @pytest.fixture(autouse=True)
@@ -22,11 +23,14 @@ def setup_environment():
     """Initializes clean database and resets engine before each test."""
     db_manager.init_db()
     pnl_manager.reset_balance(3000.0)
+    position_tracker.reset()
     auto_engine._active_trades.clear()
     auto_engine._trade_history.clear()
     auto_engine.enable()
     yield
+    position_tracker.reset()
     auto_engine._active_trades.clear()
+
 
 
 def test_auto_execution_signal_fill():
@@ -159,6 +163,7 @@ def test_auto_exit_target_reached_and_feedback():
             strategy_name="AdaptiveMLStrategy"
         )
         auto_engine._active_trades[symbol] = trade
+        position_tracker.apply_fill(symbol=symbol, side="BUY", price=20.0, quantity=65)
 
         # Price hits target (LTP = 27.00 >= 26.90)
         tick_target = MarketDataNormalizer.create_synthetic_tick(symbol=symbol, mid_price=27.00)
@@ -201,6 +206,7 @@ def test_stop_loss_breach_exit():
             strategy_name="AdaptiveMLStrategy"
         )
         auto_engine._active_trades[symbol] = trade
+        position_tracker.apply_fill(symbol=symbol, side="BUY", price=20.0, quantity=65)
 
         # Price drops below stop (LTP = 17.60 <= 17.70)
         tick_stop = MarketDataNormalizer.create_synthetic_tick(symbol=symbol, mid_price=17.60)
@@ -239,6 +245,7 @@ def test_time_stop_expiration():
             strategy_name="AdaptiveMLStrategy"
         )
         auto_engine._active_trades[symbol] = trade
+        position_tracker.apply_fill(symbol=symbol, side="BUY", price=20.0, quantity=65)
 
         # Tick at +0.20 pts gain (insufficient, < 1.50 pts)
         tick = MarketDataNormalizer.create_synthetic_tick(symbol=symbol, mid_price=20.20)
@@ -273,6 +280,7 @@ def test_capital_single_position_lock():
             features_at_entry=[0.0] * 8,
             strategy_name="AdaptiveMLStrategy"
         )
+        position_tracker.apply_fill(symbol=symbol1, side="BUY", price=20.0, quantity=65)
 
         # Attempt to dispatch second signal
         sig2 = TradingSignal(
