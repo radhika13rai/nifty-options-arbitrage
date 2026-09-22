@@ -58,7 +58,23 @@ class PositionTracker:
         now = time.time()
 
         if not pos or not pos.is_open:
-            # New opening position
+            # Under micro-capital options rules, naked option selling is prohibited
+            if side == "SELL":
+                # If a sell fill arrives without an open long position, do not open a short
+                return pos or Position(
+                    symbol=symbol,
+                    side="SELL",
+                    quantity=0,
+                    average_price=price,
+                    current_price=price,
+                    unrealized_pnl=0.0,
+                    realized_pnl=0.0,
+                    total_costs=order_costs,
+                    is_open=False,
+                    updated_at=now
+                )
+
+            # New opening long position
             new_pos = Position(
                 symbol=symbol,
                 side=side,
@@ -112,6 +128,9 @@ class PositionTracker:
             pos.update_mtm(current_price)
             return pos
         return None
+
+    def get_position(self, symbol: str) -> Optional[Position]:
+        return self._positions.get(symbol)
 
     def get_open_positions(self) -> list[Position]:
         return [p for p in self._positions.values() if p.is_open]

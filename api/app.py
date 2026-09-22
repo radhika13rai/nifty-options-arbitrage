@@ -332,6 +332,9 @@ async def reset_paper_account(request):
     """Resets paper account balance to ₹3,000 virtual capital."""
     pnl_manager.reset_balance(config.initial_capital_inr)
     position_tracker._positions.clear()
+    auto_engine._active_trades.clear()
+    if kill_switch.is_engaged:
+        kill_switch.reset("serq-reset-token-2026")
     await db_manager.record_audit_log("PAPER_ACCOUNT_RESET", "INFO", "API", "Account reset to ₹3,000")
     return JSONResponse({"success": True, "message": "Paper trading account reset to ₹3,000 initial capital."})
 

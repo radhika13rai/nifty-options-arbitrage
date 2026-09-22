@@ -133,7 +133,8 @@ class PaperBroker(AbstractBrokerClient):
                 risk_result = risk_engine.validate_order(
                     order=risk_req,
                     current_cash_inr=pnl_manager.current_cash,
-                    daily_realized_loss_inr=daily_loss
+                    daily_realized_loss_inr=daily_loss,
+                    portfolio_equity=pnl_report.total_portfolio_value
                 )
 
                 if not risk_result.passed:

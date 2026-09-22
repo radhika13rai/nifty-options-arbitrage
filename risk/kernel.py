@@ -188,17 +188,47 @@ class RiskKernel:
                     reason=f"Rejected: Emergency kill switch is active ({kill_switch.get_status().reason})"
                 )
 
-            # 2. Daily loss ceiling
-            if daily_realized_loss_inr >= self.limits.max_daily_loss_inr:
+            # 2. Daily loss ceiling (both realized loss and total portfolio drawdown)
+            drawdown_loss = max(0.0, config.initial_capital_inr - portfolio_equity) if portfolio_equity is not None else 0.0
+            effective_loss = max(daily_realized_loss_inr, drawdown_loss)
+            if effective_loss >= self.limits.max_daily_loss_inr:
                 kill_switch.engage(
-                    f"Daily loss limit breached (₹{daily_realized_loss_inr:.2f} >= ₹{self.limits.max_daily_loss_inr:.2f})",
+                    f"Daily loss limit breached (₹{effective_loss:.2f} >= ₹{self.limits.max_daily_loss_inr:.2f})",
                     "RISK_BREACH"
                 )
                 return RiskCheckResult(
                     passed=False,
                     violations=["DAILY_LOSS_LIMIT_EXCEEDED"],
-                    reason=f"Rejected: Daily loss ₹{daily_realized_loss_inr:.2f} reached ceiling of ₹{self.limits.max_daily_loss_inr:.2f}"
+                    reason=f"Rejected: Daily loss/drawdown ₹{effective_loss:.2f} reached ceiling of ₹{self.limits.max_daily_loss_inr:.2f}"
                 )
+
+            # 2b. Strict prohibition of naked option shorting (SELL without open long position)
+            if order.side == "SELL":
+                from portfolio.positions import position_tracker
+                existing_pos = position_tracker.get_position(order.symbol)
+                if not existing_pos or not existing_pos.is_open or existing_pos.side != "BUY" or existing_pos.quantity <= 0:
+                    return RiskCheckResult(
+                        passed=False,
+                        violations=["NAKED_OPTION_SHORT_PROHIBITED"],
+                        reason="Rejected: Naked option writing is prohibited under ₹3,000 capital. SELL is strictly restricted to closing an open BUY position."
+                    )
+                if order.quantity > existing_pos.quantity:
+                    return RiskCheckResult(
+                        passed=False,
+                        violations=["SELL_QUANTITY_EXCEEDS_LONG"],
+                        reason=f"Rejected: SELL quantity {order.quantity} exceeds open long quantity {existing_pos.quantity}."
+                    )
+
+            # 2c. Only 1 active position permitted at any time under ₹3,000 baseline
+            if order.side == "BUY":
+                from portfolio.positions import position_tracker
+                open_positions = position_tracker.get_open_positions()
+                if len(open_positions) >= self.limits.max_lots:
+                    return RiskCheckResult(
+                        passed=False,
+                        violations=["MAX_POSITIONS_REACHED"],
+                        reason=f"Rejected: Max simultaneous open positions ({self.limits.max_lots}) reached. Only 1 position is allowed under ₹3,000 capital."
+                    )
 
             # 3. Capital floor check on existing cash before entry
             if order.side == "BUY" and current_cash_inr < self.limits.capital_floor_inr:
