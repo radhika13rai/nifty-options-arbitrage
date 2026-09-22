@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>NIFTY 50 - Google Search & Options HUD</title>
+  <title>NIFTY 50 Options Arbitrage & Trading Engine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --gf-bg: #1f1f1f;
+      --gf-bg: #171717;
       --gf-surface: #202124;
       --gf-card: #202124;
       --gf-card-inner: #292a2d;
@@ -48,141 +48,118 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Top Google Search Bar (Matches Screenshot) */
-    .google-top-bar {
+    /* Top Platform Header */
+    .platform-header {
       background: #202124;
-      padding: 10px 14px 4px 14px;
+      padding: 12px 18px;
       position: sticky;
       top: 0;
       z-index: 100;
       border-bottom: 1px solid var(--gf-border);
-    }
-
-    .search-input-pill {
       display: flex;
-      align-items: center;
-      background: #303134;
-      border-radius: 28px;
-      padding: 8px 14px;
-      gap: 12px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.28);
-    }
-
-    .google-logo-svg {
-      flex-shrink: 0;
-      width: 22px;
-      height: 22px;
-    }
-
-    .search-query-text {
-      flex: 1;
-      font-size: 15px;
-      color: #fff;
-      font-weight: 500;
-      letter-spacing: -0.2px;
-    }
-
-    .search-icons-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--gf-text-secondary);
-    }
-
-    .search-icon-btn {
-      background: none;
-      border: none;
-      color: var(--gf-text-secondary);
-      font-size: 15px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-    }
-
-    .search-divider {
-      width: 1px;
-      height: 18px;
-      background: var(--gf-border);
-    }
-
-    /* Google Search Category Tabs (Matches Screenshot) */
-    .google-nav-tabs {
-      display: flex;
-      gap: 20px;
-      overflow-x: auto;
-      padding: 10px 8px 0 8px;
-      scrollbar-width: none;
-    }
-    .google-nav-tabs::-webkit-scrollbar { display: none; }
-
-    .nav-tab-item {
-      color: var(--gf-text-secondary);
-      font-size: 13px;
-      font-weight: 500;
-      padding-bottom: 8px;
-      white-space: nowrap;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-      text-decoration: none;
-    }
-
-    .nav-tab-item.active {
-      color: #8ab4f8;
-      border-bottom-color: #8ab4f8;
-      font-weight: 600;
-    }
-
-    /* SerQ HUD Mode Bar */
-    .hud-subnav {
-      background: #171717;
-      padding: 8px 14px;
-      display: flex;
-      align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--gf-border);
-      gap: 10px;
-      overflow-x: auto;
-    }
-
-    .hud-pills {
-      display: flex;
-      gap: 8px;
       align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
     }
 
-    .hud-tab-btn {
-      padding: 6px 12px;
-      border-radius: 16px;
+    .header-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #292a2d;
       border: 1px solid var(--gf-border);
-      background: #202124;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .brand-sub-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(138, 180, 248, 0.15);
+      color: var(--gf-blue);
+      border: 1px solid rgba(138, 180, 248, 0.3);
+      padding: 2px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .brand-meta {
+      font-size: 11px;
       color: var(--gf-text-secondary);
-      font-size: 12px;
+      margin-top: 1px;
+    }
+
+    .header-telemetry-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .telemetry-chip {
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 11px;
       font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-    }
-
-    .hud-tab-btn.active {
-      background: #8ab4f8;
-      color: #202124;
-      border-color: #8ab4f8;
-    }
-
-    .live-status-pill {
       display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(129, 201, 149, 0.15);
-      border: 1px solid rgba(129, 201, 149, 0.3);
-      color: var(--gf-green);
-      padding: 4px 10px;
-      border-radius: 14px;
-      font-size: 11px;
-      font-weight: 700;
+      background: #303134;
+      border: 1px solid var(--gf-border);
+      color: var(--gf-text-primary);
       font-family: 'JetBrains Mono', monospace;
       white-space: nowrap;
+    }
+
+    .mode-chip {
+      background: rgba(251, 188, 5, 0.12);
+      border-color: rgba(251, 188, 5, 0.3);
+      color: #fbbc05;
+    }
+
+    .live-chip {
+      background: rgba(129, 201, 149, 0.15);
+      border-color: rgba(129, 201, 149, 0.3);
+      color: var(--gf-green);
+    }
+
+    .top-kill-btn {
+      background: var(--gf-red-pill);
+      border: 1px solid var(--gf-red);
+      color: var(--gf-red);
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .top-kill-btn:hover {
+      background: var(--gf-red);
+      color: #202124;
     }
 
     .pulse-dot {
@@ -199,14 +176,56 @@
       50% { opacity: 1; transform: scale(1.15); }
     }
 
-    /* Main Content Wrapper */
+    /* Active Platform Navigation Bar */
+    .platform-nav-bar {
+      background: #202124;
+      position: sticky;
+      top: 61px;
+      z-index: 99;
+      border-bottom: 1px solid var(--gf-border);
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 0 14px;
+      scrollbar-width: none;
+    }
+    .platform-nav-bar::-webkit-scrollbar { display: none; }
+
+    .nav-tab-item {
+      color: var(--gf-text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 14px;
+      white-space: nowrap;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-tab-item:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-tab-item.active {
+      color: #8ab4f8;
+      border-bottom-color: #8ab4f8;
+      font-weight: 700;
+      background: rgba(138, 180, 248, 0.06);
+    }
+
+    /* Main Content Container */
     .gf-main-container {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
       padding: 16px 14px;
     }
 
-    /* Tab Content Controls */
+    /* Tab Section Panels */
     .tab-section {
       display: none;
     }
@@ -219,7 +238,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Stand-down & Alert Banner */
+    /* Stand-down Alert Banner */
     #market-status-banner {
       background: rgba(242, 139, 130, 0.12);
       border: 1px solid rgba(242, 139, 130, 0.35);
@@ -232,13 +251,24 @@
       gap: 12px;
     }
 
+    /* Kill Switch Notification Banner */
+    #kill-alert {
+      display: none;
+      background: var(--gf-red-pill);
+      border: 1px solid var(--gf-red);
+      color: #fff;
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
     /* ======================================================== */
-    /* GOOGLE FINANCE HERO SECTION (1:1 with Screenshot)        */
+    /* GOOGLE FINANCE HERO CARD (Matches Screenshot)             */
     /* ======================================================== */
     .gf-hero-card {
       background: var(--gf-card);
       border-radius: 20px;
-      padding: 16px 18px;
+      padding: 18px 20px;
       margin-bottom: 16px;
       border: 1px solid var(--gf-border);
     }
@@ -251,11 +281,10 @@
     }
 
     .gf-asset-title {
-      font-size: 26px;
+      font-size: 20px;
       font-weight: 700;
       color: #fff;
-      letter-spacing: -0.3px;
-      line-height: 1.2;
+      letter-spacing: -0.2px;
     }
 
     .gf-asset-meta {
@@ -267,57 +296,52 @@
       margin-top: 2px;
     }
 
+    .meta-dot { font-size: 8px; }
+
     .gf-follow-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
       background: #8ab4f8;
       color: #202124;
       border: none;
-      border-radius: 18px;
-      padding: 6px 14px;
+      border-radius: 20px;
+      padding: 7px 18px;
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
       transition: background 0.2s;
     }
-    .gf-follow-btn:hover {
-      background: var(--gf-blue-hover);
-    }
+    .gf-follow-btn:hover { background: var(--gf-blue-hover); }
 
-    /* Spot Price & Change Row */
+    /* Price Display */
     .gf-price-container {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 6px;
-      margin-bottom: 12px;
+      margin-top: 10px;
     }
 
     .gf-spot-big {
-      font-size: 34px;
+      font-size: 38px;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
       color: #fff;
       letter-spacing: -0.5px;
       line-height: 1.1;
+      font-family: var(--font-gf);
     }
 
     .gf-pill-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 14px;
-      font-weight: 600;
+      margin-top: 6px;
     }
 
     .gf-change-pill {
       display: inline-flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       padding: 3px 8px;
       border-radius: 12px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
     }
@@ -333,9 +357,9 @@
     }
 
     .gf-change-pts {
-      font-family: 'JetBrains Mono', monospace;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
     }
     .gf-change-pts.down { color: var(--gf-red); }
     .gf-change-pts.up { color: var(--gf-green); }
@@ -346,12 +370,12 @@
       margin-top: 2px;
     }
 
-    /* Timeframe Selector Pills (Matches Screenshot) */
+    /* Timeframe Selector Pills */
     .gf-timeframe-row {
       display: flex;
       gap: 6px;
       overflow-x: auto;
-      padding: 8px 0 14px 0;
+      padding: 10px 0 14px 0;
       scrollbar-width: none;
     }
     .gf-timeframe-row::-webkit-scrollbar { display: none; }
@@ -410,7 +434,7 @@
       z-index: 10;
     }
 
-    /* Key Statistics 6-Item Grid (Matches Screenshot) */
+    /* Key Statistics 6-Item Grid */
     .gf-stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -445,7 +469,7 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Related Markets Card (Matches Screenshot) */
+    /* Related Markets Card */
     .gf-related-card {
       background: var(--gf-card);
       border: 1px solid var(--gf-border);
@@ -454,49 +478,42 @@
       margin-bottom: 16px;
     }
 
-    .related-title {
-      font-size: 15px;
+    .gf-section-title {
+      font-size: 16px;
       font-weight: 700;
       color: #fff;
       margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .related-item-row {
+    .related-market-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 0;
+      padding: 9px 0;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       font-size: 13px;
     }
+    .related-market-row:last-child { border-bottom: none; }
 
-    .related-item-row:last-child {
-      border-bottom: none;
-    }
-
-    .related-name-col {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .related-name {
       color: #fff;
       font-weight: 500;
     }
 
-    .related-icon {
-      color: var(--gf-text-secondary);
-      font-size: 13px;
-    }
-
-    .related-price-col {
+    .related-right {
       display: flex;
       align-items: center;
       gap: 12px;
     }
 
-    .related-price-val {
+    .related-price {
       font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
+      font-size: 13px;
       color: #fff;
+      font-weight: 600;
     }
 
     .related-pill {
@@ -521,7 +538,7 @@
       color: var(--gf-green);
     }
 
-    /* "Analyse NIFTY 50 >" Full Width Button (Matches Screenshot) */
+    /* "Analyse NIFTY 50 >" Full Width Button */
     .gf-analyse-banner {
       width: 100%;
       background: #303134;
@@ -543,7 +560,7 @@
       border-color: #5f6368;
     }
 
-    /* Google Finance Style News Section (Matches Screenshot) */
+    /* News Grid & Cards */
     .gf-news-section {
       margin-bottom: 24px;
     }
@@ -559,17 +576,6 @@
       font-size: 18px;
       font-weight: 700;
       color: #fff;
-    }
-
-    .gf-customise-btn {
-      background: #303134;
-      border: 1px solid var(--gf-border);
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 14px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
     }
 
     .gf-news-grid {
@@ -592,43 +598,46 @@
       gap: 12px;
       justify-content: space-between;
       transition: all 0.2s;
+      text-decoration: none;
+      color: inherit;
     }
     .gf-news-card:hover {
       border-color: #5f6368;
+      background: #252629;
     }
 
     .gf-news-content {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
     }
 
     .gf-news-source {
-      display: flex;
-      align-items: center;
-      gap: 6px;
       font-size: 11px;
       color: var(--gf-text-secondary);
       margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .source-badge-live {
-      background: #ea4335;
-      color: #fff;
-      font-size: 9px;
-      font-weight: 800;
+      background: rgba(242, 139, 130, 0.2);
+      color: var(--gf-red);
       padding: 1px 5px;
       border-radius: 4px;
-      text-transform: uppercase;
+      font-size: 9px;
+      font-weight: 800;
     }
 
     .gf-news-heading {
       font-size: 13px;
       font-weight: 600;
-      color: #e8eaed;
+      color: #fff;
       line-height: 1.35;
       margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .gf-news-time {
@@ -637,26 +646,26 @@
     }
 
     .gf-news-thumb {
-      width: 72px;
-      height: 72px;
+      width: 58px;
+      height: 58px;
       border-radius: 12px;
       background: #303134;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      overflow: hidden;
+      font-size: 22px;
     }
 
-    /* ======================================================== */
-    /* TRADING & RISK HUD TAB (Clean Google Dark Styling)       */
-    /* ======================================================== */
+    /* Trading & HUD Styles */
     .trading-stat-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 12px;
       margin-bottom: 16px;
+    }
+    @media (max-width: 500px) {
+      .trading-stat-grid { grid-template-columns: 1fr; }
     }
 
     .trading-metric-box {
@@ -708,6 +717,7 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      transition: background 0.2s;
     }
     .btn-primary-act:hover { background: #aecbfa; }
 
@@ -721,6 +731,7 @@
       font-weight: 700;
       font-size: 13px;
       cursor: pointer;
+      transition: background 0.2s;
     }
     .btn-danger-act:hover { background: rgba(242, 139, 130, 0.3); }
 
@@ -757,55 +768,84 @@
       background: var(--gf-green);
       color: #202124;
     }
+
+    /* Macro Card Grid */
+    .macro-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 650px) {
+      .macro-stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 </head>
 <body>
 
-  <!-- Top Google Search Header (1:1 with Screenshot) -->
-  <header class="google-top-bar">
-    <div class="search-input-pill">
-      <!-- Colorful Google G logo -->
-      <svg class="google-logo-svg" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-      </svg>
-      <div class="search-query-text">nifty 50</div>
-      <div class="search-icons-right">
-        <button class="search-icon-btn" title="Clear">✕</button>
-        <span class="search-divider"></span>
-        <button class="search-icon-btn" title="Voice Search">🎤</button>
-        <button class="search-icon-btn" title="Google Lens">📷</button>
+  <!-- Top Platform Header -->
+  <header class="platform-header">
+    <div class="header-brand-wrap">
+      <div class="brand-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="10" width="4" height="11" rx="1.5" fill="#8ab4f8"/>
+          <line x1="5" y1="3" x2="5" y2="10" stroke="#8ab4f8" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="5" y1="21" x2="5" y2="23" stroke="#8ab4f8" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="10" y="6" width="4" height="15" rx="1.5" fill="#81c995"/>
+          <line x1="12" y1="2" x2="12" y2="6" stroke="#81c995" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="12" y1="21" x2="12" y2="23" stroke="#81c995" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="17" y="13" width="4" height="8" rx="1.5" fill="#f28b82"/>
+          <line x1="19" y1="7" x2="19" y2="13" stroke="#f28b82" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="19" y1="21" x2="19" y2="23" stroke="#f28b82" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          <span>NIFTY 50</span>
+          <span class="brand-sub-badge">OPTIONS & ARBITRAGE</span>
+        </div>
+        <div class="brand-meta">NSE Derivatives · Autonomous Execution · ₹3,000 Micro-Cap</div>
       </div>
     </div>
 
-    <!-- Google Search Category Tabs (Matches Screenshot) -->
-    <div class="google-nav-tabs">
-      <a href="#overview" class="nav-tab-item active" onclick="switchMainTab('tab-overview')">All</a>
-      <a href="#trading" class="nav-tab-item" onclick="switchMainTab('tab-trading')">Finance & HUD</a>
-      <a href="#chain" class="nav-tab-item" onclick="switchMainTab('tab-chain')">Option Chain</a>
-      <a href="#orders" class="nav-tab-item" onclick="switchMainTab('tab-orders')">Orders & PnL</a>
-      <a href="#greeks" class="nav-tab-item" onclick="switchMainTab('tab-greeks')">Greeks & ML</a>
-      <span class="nav-tab-item">News</span>
-      <span class="nav-tab-item">Videos</span>
-      <span class="nav-tab-item">More ▾</span>
+    <div class="header-telemetry-wrap">
+      <div class="telemetry-chip mode-chip" id="mode-badge">PAPER TRADING</div>
+      <div class="telemetry-chip live-chip" id="live-status-container">
+        <div class="pulse-dot" id="live-dot"></div>
+        <span id="ws-status-text">LIVE</span>
+        <span id="ws-latency" style="opacity: 0.7; font-size: 10px; margin-left: 2px;"></span>
+      </div>
+      <div class="telemetry-chip cash-chip">
+        <span style="opacity:0.7;">Cash:</span>
+        <span id="top-cash-val" style="color:var(--gf-green); font-weight:700;">₹3,000.00</span>
+      </div>
+      <button class="top-kill-btn" onclick="engageKillSwitch()">
+        🛑 KILL SWITCH
+      </button>
     </div>
   </header>
 
-  <!-- SerQ Execution Sub-bar -->
-  <div class="hud-subnav">
-    <div class="hud-pills">
-      <button class="hud-tab-btn active" id="btn-tab-overview" onclick="switchMainTab('tab-overview')">📈 Chart View</button>
-      <button class="hud-tab-btn" id="btn-tab-trading" onclick="switchMainTab('tab-trading')">⚡ Trading HUD</button>
-      <button class="hud-tab-btn" id="btn-tab-chain" onclick="switchMainTab('tab-chain')">🎯 Option Chain</button>
-    </div>
-    <div class="live-status-pill" id="live-status-container">
-      <div class="pulse-dot" id="live-dot"></div>
-      <span id="ws-status-text">LIVE</span>
-      <span id="ws-latency" style="opacity: 0.7; font-size: 10px; margin-left: 2px;"></span>
-    </div>
-  </div>
+  <!-- Active Platform Navigation Bar with Real Working Links -->
+  <nav class="platform-nav-bar">
+    <a href="#overview" class="nav-tab-item active" data-tab="overview" onclick="switchMainTab('overview', event)">
+      <span>📈</span> Overview
+    </a>
+    <a href="#trading" class="nav-tab-item" data-tab="trading" onclick="switchMainTab('trading', event)">
+      <span>⚡</span> Trading HUD
+    </a>
+    <a href="#chain" class="nav-tab-item" data-tab="chain" onclick="switchMainTab('chain', event)">
+      <span>🎯</span> Option Chain
+    </a>
+    <a href="#orders" class="nav-tab-item" data-tab="orders" onclick="switchMainTab('orders', event)">
+      <span>📋</span> Orders & PnL
+    </a>
+    <a href="#greeks" class="nav-tab-item" data-tab="greeks" onclick="switchMainTab('greeks', event)">
+      <span>🧠</span> Greeks & ML
+    </a>
+    <a href="#news" class="nav-tab-item" data-tab="news" onclick="switchMainTab('news', event)">
+      <span>📰</span> Market News
+    </a>
+  </nav>
 
   <main class="gf-main-container">
 
@@ -822,13 +862,13 @@
     </div>
 
     <!-- Kill Switch Alert Banner -->
-    <div id="kill-alert" style="display:none; background:var(--gf-red-pill); border:1px solid var(--gf-red); color:#fff; border-radius:14px; padding:12px 16px; margin-bottom:16px;">
+    <div id="kill-alert">
       ⚠️ <strong>EMERGENCY KILL SWITCH ENGAGED!</strong> <span id="kill-reason"></span>
       <button onclick="resetKillSwitch()" style="margin-left:10px; padding:3px 8px; background:var(--gf-red); color:#202124; border:none; border-radius:4px; font-weight:700; cursor:pointer;">Reset</button>
     </div>
 
     <!-- ======================================================== -->
-    <!-- SECTION 1: GOOGLE FINANCE OVERVIEW (1:1 with Screenshot)  -->
+    <!-- TAB 1: GOOGLE FINANCE OVERVIEW & CHART                   -->
     <!-- ======================================================== -->
     <div id="tab-overview" class="tab-section active">
 
@@ -840,11 +880,11 @@
             <div class="gf-asset-meta">
               <span>INDEXNSE: NIFTY_50</span>
               <span class="meta-dot">•</span>
-              <span style="cursor:pointer;">⋮</span>
+              <span style="cursor:pointer;" title="Options Contract Multiplier">Lot Size: 65</span>
             </div>
           </div>
-          <button class="gf-follow-btn">
-            <span>+</span> Follow
+          <button class="gf-follow-btn" onclick="switchMainTab('chain', event)">
+            <span>+</span> Follow Strikes
           </button>
         </div>
 
@@ -858,11 +898,11 @@
             <span class="gf-change-pts down" id="spot-points-text">-85.30 today</span>
           </div>
           <div class="gf-market-timestamp" id="gf-timestamp">
-            22 Sept, 3:31 pm IST • <span id="market-session-label">NSE Regular Session</span> • Disclaimer
+            22 Sept, 3:30 pm IST • INR • INDEXNSE • Disclaimer
           </div>
         </div>
 
-        <!-- Timeframe Selector (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, Max) -->
+        <!-- Timeframe Selector Pills -->
         <div class="gf-timeframe-row">
           <button class="gf-tf-pill active" data-tf="1D" onclick="setTimeframe('1D')">1D</button>
           <button class="gf-tf-pill" data-tf="5D" onclick="setTimeframe('5D')">5D</button>
@@ -874,112 +914,107 @@
           <button class="gf-tf-pill" data-tf="Max" onclick="setTimeframe('Max')">Max</button>
         </div>
 
-        <!-- Interactive Line Chart Canvas -->
+        <!-- High-DPI Interactive Canvas Chart -->
         <div class="gf-chart-wrap">
+          <div id="chart-hover-tooltip" class="chart-hover-pill"></div>
           <canvas id="nifty-chart-canvas"></canvas>
-          <div class="chart-hover-pill" id="chart-hover-tooltip"></div>
         </div>
 
-        <!-- Key Statistics 6-Item Grid (Matches Screenshot) -->
+        <!-- Key Statistics 6-Item Grid -->
         <div class="gf-stats-grid">
           <div class="gf-stat-item">
             <span class="gf-stat-label">Open</span>
             <span class="gf-stat-value" id="stat-open">23,454.05</span>
           </div>
           <div class="gf-stat-item">
+            <span class="gf-stat-label">High</span>
+            <span class="gf-stat-value" id="stat-high">23,489.00</span>
+          </div>
+          <div class="gf-stat-item">
             <span class="gf-stat-label">Low</span>
             <span class="gf-stat-value" id="stat-low">23,285.75</span>
+          </div>
+          <div class="gf-stat-item">
+            <span class="gf-stat-label">Prev close</span>
+            <span class="gf-stat-value" id="stat-prev-close">23,414.30</span>
           </div>
           <div class="gf-stat-item">
             <span class="gf-stat-label">52-wk high</span>
             <span class="gf-stat-value">26,373.20</span>
           </div>
           <div class="gf-stat-item">
-            <span class="gf-stat-label">High</span>
-            <span class="gf-stat-value" id="stat-high">23,489.00</span>
-          </div>
-          <div class="gf-stat-item">
-            <span class="gf-stat-label">Prev close</span>
-            <span class="gf-stat-value" id="stat-prevclose">23,414.30</span>
-          </div>
-          <div class="gf-stat-item">
             <span class="gf-stat-label">52-wk low</span>
             <span class="gf-stat-value">22,182.55</span>
           </div>
         </div>
+
       </div>
 
-      <!-- Related Markets Card (Matches Screenshot) -->
+      <!-- Related Markets Card -->
       <div class="gf-related-card">
-        <div class="related-title">Related markets</div>
-        <div class="related-item-row">
-          <div class="related-name-col">
-            <span class="related-icon">🔍</span>
-            <span>Dow Jones Industrial Average</span>
-          </div>
-          <div class="related-price-col">
-            <span class="related-price-val">51,799.24</span>
+        <div class="gf-section-title">
+          <span>Global Markets & Correlated Assets</span>
+          <span style="font-size:11px; color:var(--gf-text-secondary); font-weight:normal;">Live Benchmark</span>
+        </div>
+
+        <div class="related-market-row">
+          <span class="related-name">Dow Jones</span>
+          <div class="related-right">
+            <span class="related-price">51,799.24</span>
             <span class="related-pill down">↓ 0.48%</span>
           </div>
         </div>
-        <div class="related-item-row">
-          <div class="related-name-col">
-            <span class="related-icon">🔍</span>
-            <span>S&P 500</span>
-          </div>
-          <div class="related-price-col">
-            <span class="related-price-val">7,766.27</span>
-            <span class="related-pill up">↑ 0.020%</span>
+
+        <div class="related-market-row">
+          <span class="related-name">S&P 500</span>
+          <div class="related-right">
+            <span class="related-price">7,766.27</span>
+            <span class="related-pill up">↑ 0.02%</span>
           </div>
         </div>
-        <div class="related-item-row">
-          <div class="related-name-col">
-            <span class="related-icon">🔍</span>
-            <span>Nasdaq Composite</span>
-          </div>
-          <div class="related-price-col">
-            <span class="related-price-val">27,247.65</span>
+
+        <div class="related-market-row">
+          <span class="related-name">Nasdaq</span>
+          <div class="related-right">
+            <span class="related-price">27,247.65</span>
             <span class="related-pill up">↑ 0.46%</span>
           </div>
         </div>
-        <div class="related-item-row">
-          <div class="related-name-col">
-            <span class="related-icon">🔍</span>
-            <span>Russell 2000 Index</span>
-          </div>
-          <div class="related-price-col">
-            <span class="related-price-val">2,905.79</span>
+
+        <div class="related-market-row">
+          <span class="related-name">Russell 2000</span>
+          <div class="related-right">
+            <span class="related-price">2,905.79</span>
             <span class="related-pill up">↑ 1.06%</span>
           </div>
         </div>
-        <div class="related-item-row">
-          <div class="related-name-col">
-            <span class="related-icon">🔍</span>
-            <span>Brent Crude USD</span>
-          </div>
-          <div class="related-price-col">
-            <span class="related-price-val" id="macro-brent-val">$74.20</span>
+
+        <div class="related-market-row">
+          <span class="related-name">Brent Crude</span>
+          <div class="related-right">
+            <span class="related-price" id="macro-brent-val">$74.20</span>
             <span class="related-pill down" id="macro-brent-pill">↓ 1.20%</span>
           </div>
         </div>
       </div>
 
-      <!-- "Analyse NIFTY 50 >" Action Banner (Matches Screenshot) -->
-      <button class="gf-analyse-banner" onclick="switchMainTab('tab-trading')">
-        <span>Analyse NIFTY 50 Options & Arbitrage</span>
+      <!-- "Analyse NIFTY 50 >" Action Banner linking to Option Chain -->
+      <button class="gf-analyse-banner" onclick="switchMainTab('chain', event)">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size: 16px;">⚡</span>
+          <span>Analyse NIFTY 50 Options & Arbitrage Chain</span>
+        </div>
         <span style="font-size: 18px;">›</span>
       </button>
 
-      <!-- Google Style News Grid (Matches Screenshot) -->
+      <!-- News Preview Card -->
       <div class="gf-news-section">
         <div class="gf-news-header">
-          <h2 class="gf-news-title">News</h2>
-          <button class="gf-customise-btn">Customise</button>
+          <h2 class="gf-news-title">Market News Highlights</h2>
+          <button class="gf-tf-pill" style="background:#303134; color:#fff;" onclick="switchMainTab('news', event)">View All News ›</button>
         </div>
-
-        <div class="gf-news-grid" id="gf-news-container">
-          <!-- Featured Live Card -->
-          <div class="gf-news-card" style="grid-column: 1 / -1;">
+        <div class="gf-news-grid">
+          <a href="#news" onclick="switchMainTab('news', event)" class="gf-news-card" style="grid-column: 1 / -1;">
             <div class="gf-news-content">
               <div class="gf-news-source">
                 <span class="source-badge-live">LIVE ●</span>
@@ -989,54 +1024,14 @@
               <div class="gf-news-time">3 hours ago • Market Analysis</div>
             </div>
             <div class="gf-news-thumb" style="background:#2a1b1b; color:#ff7788;">📉</div>
-          </div>
-
-          <!-- Card 2 -->
-          <div class="gf-news-card">
-            <div class="gf-news-content">
-              <div class="gf-news-source">Investing.com India</div>
-              <h3 class="gf-news-heading">India shares lower at close of trade; Nifty 50 down 0.36%</h3>
-              <div class="gf-news-time">4 hours ago</div>
-            </div>
-            <div class="gf-news-thumb" style="background:#1b252a; color:#8ab4f8;">🏛️</div>
-          </div>
-
-          <!-- Card 3 -->
-          <div class="gf-news-card">
-            <div class="gf-news-content">
-              <div class="gf-news-source">Liquide Blog</div>
-              <h3 class="gf-news-heading">Share Market Today: Nifty 50, Bank Nifty | Sep 22, 2026</h3>
-              <div class="gf-news-time">3 hours ago</div>
-            </div>
-            <div class="gf-news-thumb" style="background:#2a1b25; color:#c084fc;">📊</div>
-          </div>
-
-          <!-- Card 4 -->
-          <div class="gf-news-card">
-            <div class="gf-news-content">
-              <div class="gf-news-source">BusinessLine</div>
-              <h3 class="gf-news-heading">Stock Market Today Highlights: Sensex falls 330 pts, Nifty below 23,400 on crude spike</h3>
-              <div class="gf-news-time">4 hours ago</div>
-            </div>
-            <div class="gf-news-thumb" style="background:#252a1b; color:#81c995;">🛢️</div>
-          </div>
-
-          <!-- Card 5 -->
-          <div class="gf-news-card">
-            <div class="gf-news-content">
-              <div class="gf-news-source">Moneycontrol</div>
-              <h3 class="gf-news-heading">Live: Nifty below 23,400 on expiry day, Oil below $100, FII outflows stabilize</h3>
-              <div class="gf-news-time">4 hours ago</div>
-            </div>
-            <div class="gf-news-thumb" style="background:#1b252a; color:#8ab4f8;">📺</div>
-          </div>
+          </a>
         </div>
       </div>
 
     </div>
 
     <!-- ======================================================== -->
-    <!-- SECTION 2: TRADING & RISK HUD                           -->
+    <!-- TAB 2: TRADING & RISK HUD                                -->
     <!-- ======================================================== -->
     <div id="tab-trading" class="tab-section">
 
@@ -1114,17 +1109,17 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- SECTION 3: OPTIONS CHAIN (65 QTY)                       -->
+    <!-- TAB 3: OPTIONS CHAIN                                     -->
     <!-- ======================================================== -->
     <div id="tab-chain" class="tab-section">
       <div class="gf-list-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
           <div>
-            <h3 style="font-size:16px; font-weight:700;">NIFTY Options Chain (65 Units)</h3>
-            <div style="font-size:11px; color:var(--gf-text-secondary);">Filtered to ATM & OTM contracts under ₹3,000 capital cap</div>
+            <h3 style="font-size:16px; font-weight:700;">NIFTY Options Chain (65 Units / Lot)</h3>
+            <div style="font-size:11px; color:var(--gf-text-secondary);">Filtered to ATM & OTM contracts under ₹38.00 premium cap (₹3,000 capital)</div>
           </div>
-          <button onclick="hydrateFromREST()" style="background:#303134; border:1px solid var(--gf-border); color:#fff; padding:4px 10px; border-radius:10px; font-size:11px; cursor:pointer;">
-            🔄 Refresh
+          <button onclick="hydrateFromREST()" style="background:#303134; border:1px solid var(--gf-border); color:#fff; padding:6px 12px; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer;">
+            🔄 Refresh Quotes
           </button>
         </div>
 
@@ -1135,7 +1130,7 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- SECTION 4: ORDERS & TRADES                              -->
+    <!-- TAB 4: ORDERS & TRADES                                   -->
     <!-- ======================================================== -->
     <div id="tab-orders" class="tab-section">
       <div class="gf-list-card">
@@ -1154,7 +1149,7 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- SECTION 5: GREEKS & RISK                                -->
+    <!-- TAB 5: GREEKS & ML                                       -->
     <!-- ======================================================== -->
     <div id="tab-greeks" class="tab-section">
       <div class="gf-list-card">
@@ -1171,27 +1166,162 @@
         <button onclick="calculateGreeksUI()" class="btn-primary-act" style="width:100%;">Calculate Greeks</button>
         <div id="greeks-result-box" style="margin-top:12px; font-family:'JetBrains Mono',monospace; font-size:12px;"></div>
       </div>
+
+      <div class="gf-list-card">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:8px;">Adaptive ML Model Drift Guard</h3>
+        <p style="font-size:12px; color:var(--gf-text-secondary); margin-bottom:12px;">Monitors consecutive loss sequences to autonomously roll back unviable models to champion weights.</p>
+        <div id="drift-guard-status" style="font-size:12px; color:#fff; font-family:'JetBrains Mono',monospace; background:#292a2d; padding:10px; border-radius:8px;">
+          Status: Normal · Rollbacks: 0 · Consecutive Losses: 0
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 6: MARKET NEWS & GLOBAL MACRO                        -->
+    <!-- ======================================================== -->
+    <div id="tab-news" class="tab-section">
+
+      <!-- Macro Indicators Header -->
+      <div class="gf-list-card">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:12px;">Global Macro Telemetry</h3>
+        <div class="macro-stat-grid">
+          <div class="trading-metric-box">
+            <div class="t-label">BRENT CRUDE</div>
+            <div class="t-val" id="macro-brent-price" style="font-size:18px;">$74.20</div>
+            <div class="t-sub" style="color:var(--gf-red);">↓ 1.20%</div>
+          </div>
+          <div class="trading-metric-box">
+            <div class="t-label">DOLLAR INDEX (DXY)</div>
+            <div class="t-val" id="macro-dxy-price" style="font-size:18px;">104.15</div>
+            <div class="t-sub" style="color:var(--gf-green);">↑ 0.18%</div>
+          </div>
+          <div class="trading-metric-box">
+            <div class="t-label">GIFT NIFTY GAP</div>
+            <div class="t-val" id="macro-gift-gap" style="font-size:18px;">-15 pts</div>
+            <div class="t-sub">Expected Open Dip</div>
+          </div>
+          <div class="trading-metric-box">
+            <div class="t-label">GEOPOLITICAL FEAR</div>
+            <div class="t-val" id="macro-fear-idx" style="font-size:18px;">0.32</div>
+            <div class="t-sub" style="color:var(--gf-green);">Low / Stable</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial News Grid -->
+      <div class="gf-news-section">
+        <div class="gf-news-header">
+          <h2 class="gf-news-title">Curated Financial News</h2>
+          <span style="font-size:11px; color:var(--gf-text-secondary);">Real-Time RSS Feed</span>
+        </div>
+
+        <div class="gf-news-grid" id="gf-news-container">
+          <!-- Featured Live Card -->
+          <div class="gf-news-card" style="grid-column: 1 / -1;">
+            <div class="gf-news-content">
+              <div class="gf-news-source">
+                <span class="source-badge-live">LIVE ●</span>
+                <span>The Economic Times</span>
+              </div>
+              <h3 class="gf-news-heading">Sensex Today | Nifty 50 | Stock Market Highlights: Sensex ends 330 pts lower, Nifty below 23,400; Bajaj, RIL lead slide</h3>
+              <div class="gf-news-time">3 hours ago • Market Analysis</div>
+            </div>
+            <div class="gf-news-thumb" style="background:#2a1b1b; color:#ff7788;">📉</div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="gf-news-card">
+            <div class="gf-news-content">
+              <div class="gf-news-source">Investing.com India</div>
+              <h3 class="gf-news-heading">India shares lower at close of trade; Nifty 50 down 0.36%</h3>
+              <div class="gf-news-time">4 hours ago</div>
+            </div>
+            <div class="gf-news-thumb" style="background:#1b252a; color:#8ab4f8;">🏛️</div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="gf-news-card">
+            <div class="gf-news-content">
+              <div class="gf-news-source">Liquide Blog</div>
+              <h3 class="gf-news-heading">Share Market Today: Nifty 50, Bank Nifty | Sep 22, 2026</h3>
+              <div class="gf-news-time">3 hours ago</div>
+            </div>
+            <div class="gf-news-thumb" style="background:#2a1b25; color:#c084fc;">📊</div>
+          </div>
+
+          <!-- Card 4 -->
+          <div class="gf-news-card">
+            <div class="gf-news-content">
+              <div class="gf-news-source">BusinessLine</div>
+              <h3 class="gf-news-heading">Stock Market Today Highlights: Sensex falls 330 pts, Nifty below 23,400 on crude spike</h3>
+              <div class="gf-news-time">4 hours ago</div>
+            </div>
+            <div class="gf-news-thumb" style="background:#252a1b; color:#81c995;">🛢️</div>
+          </div>
+
+          <!-- Card 5 -->
+          <div class="gf-news-card">
+            <div class="gf-news-content">
+              <div class="gf-news-source">Moneycontrol</div>
+              <h3 class="gf-news-heading">Live: Nifty below 23,400 on expiry day, Oil below $100, FII outflows stabilize</h3>
+              <div class="gf-news-time">4 hours ago</div>
+            </div>
+            <div class="gf-news-thumb" style="background:#1b252a; color:#8ab4f8;">📺</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </main>
 
   <script>
-    // Tab Switching
-    function switchMainTab(tabId) {
+    // Tab Switching with URL Hash Synchronization and Real Working Links
+    function switchMainTab(tabId, event) {
+      if (event && event.preventDefault) event.preventDefault();
+
+      const cleanId = tabId.startsWith('tab-') ? tabId : 'tab-' + tabId;
+      const slug = cleanId.replace('tab-', '');
+
+      // 1. Activate Section Panel
       document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.nav-tab-item').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.hud-tab-btn').forEach(el => el.classList.remove('active'));
+      const target = document.getElementById(cleanId);
+      if (target) {
+        target.classList.add('active');
+      }
 
-      const target = document.getElementById(tabId);
-      if (target) target.classList.add('active');
+      // 2. Activate Corresponding Navigation Link
+      document.querySelectorAll('.nav-tab-item').forEach(el => {
+        const itemSlug = el.getAttribute('data-tab') || el.getAttribute('href')?.replace('#', '');
+        if (itemSlug === slug) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
 
-      const hudBtn = document.getElementById('btn-' + tabId);
-      if (hudBtn) hudBtn.classList.add('active');
+      // 3. Update URL Hash
+      if (history.pushState) {
+        history.pushState(null, null, '#' + slug);
+      } else {
+        window.location.hash = '#' + slug;
+      }
 
-      if (tabId === 'tab-chain') hydrateFromREST();
-      if (tabId === 'tab-orders') { loadOrders(); loadTrades(); }
-      if (tabId === 'tab-overview') resizeChart();
+      // 4. Trigger specific data hydration hooks
+      if (cleanId === 'tab-chain') hydrateFromREST();
+      if (cleanId === 'tab-orders') { loadOrders(); loadTrades(); }
+      if (cleanId === 'tab-overview') resizeChart();
+      if (cleanId === 'tab-news') loadMacroStatus();
+      if (cleanId === 'tab-trading') updatePnL();
     }
+
+    // Handle browser back/forward and direct URL bookmark hashes
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && document.getElementById('tab-' + hash)) {
+        switchMainTab(hash);
+      }
+    });
 
     // --- Interactive Google Finance Chart Engine ---
     let chartCanvas = null;
@@ -1205,11 +1335,9 @@
     function generateSeriesForTimeframe(tf) {
       const data = [];
       if (tf === '1D') {
-        // Intraday from 09:15 to 15:30 (approx 75 points)
-        // Opened at 23,454.05, morning high 23,489.00, midday low 23,285.75, closed/traded around 23,329.00
+        // Intraday from 09:15 to 15:30
         const times = ['09:15', '09:30', '09:45', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30'];
         const values = [23454.05, 23472.10, 23489.00, 23460.50, 23420.25, 23395.10, 23360.80, 23340.20, 23315.40, 23285.75, 23310.20, 23355.60, 23340.10, 23312.30, liveSpotPrice];
-        // Interpolate smooth curve
         for (let i = 0; i < values.length - 1; i++) {
           const steps = 5;
           for (let s = 0; s < steps; s++) {
@@ -1289,7 +1417,7 @@
       const getY = p => padTop + chartH - ((p - minP) / rangeP) * chartH;
       const getX = idx => (idx / (rawChartData.length - 1)) * W;
 
-      // 1. Dotted Reference Line: Previous Close (Matches Screenshot)
+      // 1. Dotted Reference Line: Previous Close
       const prevCloseY = getY(prevClosePrice);
       chartCtx.save();
       chartCtx.setLineDash([4, 4]);
@@ -1337,7 +1465,7 @@
       chartCtx.fillStyle = grad;
       chartCtx.fill();
 
-      // 3. Time Axis Labels (Matches Screenshot: 11:00 am, 1:00 pm, 3:00 pm)
+      // 3. Time Axis Labels
       chartCtx.fillStyle = 'var(--gf-text-secondary)';
       chartCtx.font = '11px "Plus Jakarta Sans", sans-serif';
       chartCtx.textAlign = 'center';
@@ -1361,7 +1489,7 @@
         chartCtx.lineTo(hX, H - padBottom);
         chartCtx.stroke();
 
-        // Pulsing circle at point
+        // Circle at point
         chartCtx.fillStyle = lineColor;
         chartCtx.beginPath();
         chartCtx.arc(hX, hY, 4.5, 0, Math.PI * 2);
@@ -1450,342 +1578,466 @@
       return headers;
     }
 
-    let ws;
-    let lastPing = Date.now();
-    let fallbackPollInterval = null;
+    let socket = null;
+    let pingInterval = null;
 
     function initWebSocket() {
       const loc = window.location;
-      const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+      const protocol = (loc.protocol === 'https:') ? 'wss:' : 'ws:';
       const apiKey = getApiKey();
-      let wsUrl = wsProtocol + '//' + loc.host + '/ws/stream';
-      if (apiKey) wsUrl += '?api_key=' + encodeURIComponent(apiKey);
+      const wsUrl = `${protocol}//${loc.host}/ws/stream${apiKey ? '?api_key=' + encodeURIComponent(apiKey) : ''}`;
+
+      const statusContainer = document.getElementById('live-status-container');
+      const dot = document.getElementById('live-dot');
+      const text = document.getElementById('ws-status-text');
+      const latencyEl = document.getElementById('ws-latency');
 
       try {
-        ws = new WebSocket(wsUrl);
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          if (statusContainer) {
+            statusContainer.style.background = 'rgba(129, 201, 149, 0.15)';
+            statusContainer.style.color = 'var(--gf-green)';
+          }
+          if (dot) dot.style.background = 'var(--gf-green)';
+          if (text) text.innerText = 'LIVE';
+
+          clearInterval(pingInterval);
+          pingInterval = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            }
+          }, 3000);
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'pong') {
+              const rtt = Date.now() - data.timestamp;
+              if (latencyEl) latencyEl.innerText = `${rtt}ms`;
+              return;
+            }
+            if (data.type === 'tick') {
+              handleLiveTick(data.data);
+            }
+          } catch (e) {}
+        };
+
+        socket.onclose = () => {
+          if (statusContainer) {
+            statusContainer.style.background = 'rgba(242, 139, 130, 0.15)';
+            statusContainer.style.color = 'var(--gf-red)';
+          }
+          if (dot) dot.style.background = 'var(--gf-red)';
+          if (text) text.innerText = 'OFFLINE';
+          if (latencyEl) latencyEl.innerText = '';
+          clearInterval(pingInterval);
+          setTimeout(initWebSocket, 3000);
+        };
+
+        socket.onerror = () => { socket.close(); };
       } catch (e) {
-        startFallbackPolling();
-        return;
+        setTimeout(initWebSocket, 3000);
       }
+    }
 
-      ws.onopen = () => {
-        const dot = document.getElementById('live-dot');
-        if (dot) dot.style.background = 'var(--gf-green)';
-        const stText = document.getElementById('ws-status-text');
-        if (stText) stText.innerText = 'LIVE';
-        stopFallbackPolling();
-      };
-
-      ws.onmessage = (evt) => {
-        const now = Date.now();
-        const pingEl = document.getElementById('ws-latency');
-        if (pingEl) pingEl.innerText = (now - lastPing) + ' ms';
-        lastPing = now;
-
-        try {
-          const data = JSON.parse(evt.data);
-          updateUI(data);
-        } catch (err) {
-          console.error("WS Parse error", err);
+    function handleLiveTick(tick) {
+      if (!tick) return;
+      if (tick.symbol === 'NIFTY 50' || tick.symbol === 'NIFTY' || tick.symbol.includes('INDEX')) {
+        updateSpotHeader(tick.ltp, true);
+        if (tick.open) document.getElementById('stat-open').innerText = Number(tick.open).toLocaleString('en-IN', {minimumFractionDigits:2});
+        if (tick.high) document.getElementById('stat-high').innerText = Number(tick.high).toLocaleString('en-IN', {minimumFractionDigits:2});
+        if (tick.low) document.getElementById('stat-low').innerText = Number(tick.low).toLocaleString('en-IN', {minimumFractionDigits:2});
+        if (tick.close) {
+          prevClosePrice = Number(tick.close);
+          document.getElementById('stat-prev-close').innerText = prevClosePrice.toLocaleString('en-IN', {minimumFractionDigits:2});
         }
-      };
-
-      ws.onclose = () => {
-        const dot = document.getElementById('live-dot');
-        if (dot) dot.style.background = 'var(--gf-red)';
-        const stText = document.getElementById('ws-status-text');
-        if (stText) stText.innerText = 'RECONNECT';
-        startFallbackPolling();
-        setTimeout(initWebSocket, 2000);
-      };
-
-      ws.onerror = () => startFallbackPolling();
-    }
-
-    function startFallbackPolling() {
-      if (!fallbackPollInterval) fallbackPollInterval = setInterval(hydrateFromREST, 2500);
-    }
-
-    function stopFallbackPolling() {
-      if (fallbackPollInterval) {
-        clearInterval(fallbackPollInterval);
-        fallbackPollInterval = null;
       }
+    }
+
+    // --- REST Telemetry Fetchers ---
+    async function updatePnL() {
+      try {
+        const res = await fetch('/api/pnl', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const cashEl = document.getElementById('cash-val');
+        const topCashEl = document.getElementById('top-cash-val');
+        const pnlEl = document.getElementById('net-pnl');
+        const pctEl = document.getElementById('pnl-pct');
+        const feesEl = document.getElementById('total-fees');
+        const portEl = document.getElementById('port-val');
+        const ddEl = document.getElementById('drawdown-val');
+
+        const cashStr = `₹${Number(data.current_cash).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+        if (cashEl) cashEl.innerText = cashStr;
+        if (topCashEl) topCashEl.innerText = cashStr;
+
+        if (pnlEl) {
+          pnlEl.innerText = `₹${Number(data.net_pnl).toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+          pnlEl.style.color = data.net_pnl >= 0 ? 'var(--gf-green)' : 'var(--gf-red)';
+        }
+        if (pctEl) pctEl.innerText = `${data.net_pnl_percentage >= 0 ? '+' : ''}${data.net_pnl_percentage.toFixed(2)}% Return`;
+        if (feesEl) feesEl.innerText = `₹${Number(data.total_friction_inr).toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+        if (portEl) portEl.innerText = `₹${Number(data.total_portfolio_value).toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+        if (ddEl) ddEl.innerText = `Drawdown: ${data.drawdown_pct.toFixed(2)}% (Max: ${data.max_drawdown_pct.toFixed(2)}%)`;
+      } catch (e) {}
+    }
+
+    async function checkMarketStatus() {
+      try {
+        const res = await fetch('/api/scheduler/status', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const banner = document.getElementById('market-status-banner');
+        const title = document.getElementById('market-status-title');
+        const sub = document.getElementById('market-status-sub');
+        const tag = document.getElementById('market-status-tag');
+
+        if (!data.is_trading_permitted) {
+          banner.style.display = 'flex';
+          title.innerText = `NSE MARKET CLOSED (${data.current_phase.replace('_', ' ')})`;
+          sub.innerText = data.guard_status || 'Platform standing down in capital preservation mode.';
+          tag.innerText = 'STAND-DOWN';
+        } else {
+          banner.style.display = 'none';
+        }
+      } catch (e) {}
+    }
+
+    async function checkKillSwitch() {
+      try {
+        const res = await fetch('/api/status', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const alertEl = document.getElementById('kill-alert');
+        const reasonEl = document.getElementById('kill-reason');
+        if (data.kill_switch && data.kill_switch.engaged) {
+          alertEl.style.display = 'block';
+          reasonEl.innerText = `(${data.kill_switch.reason})`;
+        } else {
+          alertEl.style.display = 'none';
+        }
+
+        if (data.champion_challenger) {
+          const mText = document.getElementById('champion-model-text');
+          if (mText) mText.innerText = data.champion_challenger.champion_id || 'CHAMPION_BASELINE_V1';
+        }
+      } catch (e) {}
     }
 
     async function hydrateFromREST() {
       try {
-        const [statusRes, quotesRes, posRes, intelRes, ccRes, atRes] = await Promise.allSettled([
-          fetch('/api/status').then(r => r.ok ? r.json() : null),
-          fetch('/api/quotes').then(r => r.ok ? r.json() : null),
-          fetch('/api/positions').then(r => r.ok ? r.json() : null),
-          fetch('/api/intelligence/snapshot').then(r => r.ok ? r.json() : null),
-          fetch('/api/learning/champion').then(r => r.ok ? r.json() : null),
-          fetch('/api/auto-trade/status').then(r => r.ok ? r.json() : null),
-        ]);
+        const res = await fetch('/api/quotes', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const quotes = await res.json();
 
-        const statusData = statusRes.status === 'fulfilled' && statusRes.value ? statusRes.value : {};
-        const quotesData = quotesRes.status === 'fulfilled' && quotesRes.value ? quotesRes.value : {};
-        const posData = posRes.status === 'fulfilled' && posRes.value ? posRes.value : [];
-        const intelData = intelRes.status === 'fulfilled' && intelRes.value ? intelRes.value : null;
-        const ccData = ccRes.status === 'fulfilled' && ccRes.value ? ccRes.value : null;
-        const atData = atRes.status === 'fulfilled' && atRes.value ? atRes.value : null;
+        const list = document.getElementById('quotes-list');
+        if (!list) return;
 
-        updateUI({
-          type: 'STREAM_UPDATE',
-          is_market_open: statusData.is_market_open !== undefined ? statusData.is_market_open : true,
-          market_phase: statusData.market_phase || 'MORNING_BREAKOUT',
-          real_nifty_spot: statusData.real_nifty_spot || 23329.00,
-          pnl: statusData.pnl ? {
-            cash: statusData.capital ? statusData.capital.current_cash : 2980.72,
-            total_val: statusData.capital ? statusData.capital.total_portfolio_value : 2980.72,
-            fees: statusData.pnl.total_friction,
-            net_pnl: statusData.pnl.net_pnl,
-            net_pct: statusData.pnl.net_pnl_pct,
-            drawdown_pct: statusData.pnl.drawdown_pct
-          } : undefined,
-          quotes: quotesData,
-          positions: posData,
-          auto_trade: atData,
-          market_intelligence: intelData,
-          champion_challenger: ccData && ccData.champion ? {
-            champion_id: ccData.champion.model_id
-          } : undefined
+        if (quotes.length === 0) {
+          list.innerHTML = '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No active option quotes found under ₹38.00 cap.</div>';
+          return;
+        }
+
+        let html = '';
+        quotes.slice(0, 15).forEach(q => {
+          const isCE = q.symbol.includes('_CE');
+          const badgeClass = isCE ? 'style="color:var(--gf-green); font-weight:700;"' : 'style="color:var(--gf-red); font-weight:700;"';
+          html += `
+            <div class="gf-list-item">
+              <div>
+                <span ${badgeClass}>${isCE ? 'CALL' : 'PUT'}</span>
+                <strong style="margin-left:6px; color:#fff;">${q.symbol}</strong>
+                <div style="font-size:11px; color:var(--gf-text-secondary); margin-top:2px;">
+                  Bid: ₹${Number(q.best_bid || 0).toFixed(2)} | Ask: ₹${Number(q.best_ask || 0).toFixed(2)} | Vol: ${q.volume || 0}
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:#fff;">₹${Number(q.ltp).toFixed(2)}</span>
+                <button class="btn-buy-chip" onclick="quickBuyOrder('${q.symbol}', ${q.best_ask || q.ltp})">BUY 1 LOT</button>
+              </div>
+            </div>
+          `;
         });
-      } catch (e) {
-        console.warn('Hydration error:', e);
-      }
-    }
-
-    function updateUI(data) {
-      // 1. Spot Price & Chart update
-      if (data.real_nifty_spot) {
-        updateSpotHeader(data.real_nifty_spot, true);
-        if (currentTimeframe === '1D' && rawChartData.length > 0) {
-          rawChartData[rawChartData.length - 1].price = data.real_nifty_spot;
-          renderChart();
-        }
-      }
-
-      // 2. Session Banner
-      const isMarketOpen = data.is_market_open;
-      const banner = document.getElementById('market-status-banner');
-      if (banner) {
-        banner.style.display = isMarketOpen ? 'none' : 'flex';
-      }
-
-      // 3. PnL & Virtual Capital
-      if (data.pnl) {
-        const cashEl = document.getElementById('cash-val');
-        if (cashEl) cashEl.innerText = '₹' + data.pnl.cash.toFixed(2);
-
-        const netEl = document.getElementById('net-pnl');
-        if (netEl) {
-          netEl.innerText = '₹' + data.pnl.net_pnl.toFixed(2);
-          netEl.style.color = data.pnl.net_pnl >= 0 ? 'var(--gf-green)' : 'var(--gf-red)';
-        }
-
-        const pctEl = document.getElementById('pnl-pct');
-        if (pctEl) pctEl.innerText = data.pnl.net_pct.toFixed(2) + '% Return';
-
-        const feeEl = document.getElementById('total-fees');
-        if (feeEl) feeEl.innerText = '₹' + data.pnl.fees.toFixed(2);
-
-        const portEl = document.getElementById('port-val');
-        if (portEl) portEl.innerText = '₹' + data.pnl.total_val.toFixed(2);
-      }
-
-      // 4. ML Champion Model
-      if (data.champion_challenger) {
-        const champEl = document.getElementById('champion-model-text');
-        if (champEl) champEl.innerText = data.champion_challenger.champion_id;
-      }
-
-      // 5. Option Chain Quotes
-      if (data.quotes) {
-        renderQuotes(data.quotes);
-      }
-
-      // 6. Active Auto Trade
-      if (data.auto_trade) {
-        const mtContainer = document.getElementById('managed-trade-container');
-        if (mtContainer) {
-          if (data.auto_trade.active_trades && data.auto_trade.active_trades.length > 0) {
-            const t = data.auto_trade.active_trades[0];
-            mtContainer.innerHTML = `<div style="font-weight:700; color:#fff;">${t.symbol} (65 Qty)</div>
-              <div>Entry: ₹${t.entry_price} | LTP: ₹${t.current_price} | Stop: ₹${t.stop_price} | Target: ₹${t.target_price}</div>
-              <div style="color:${t.delta_pts >= 0 ? 'var(--gf-green)' : 'var(--gf-red)'}; font-weight:700;">Move: ${t.delta_pts.toFixed(2)} pts</div>`;
-          } else {
-            mtContainer.innerHTML = 'Scanning orderbooks. Auto-Pilot enters single-leg breakouts when ML conviction ≥ 55% and Net P&L clears the ₹52 statutory hurdle.';
-          }
-        }
-      }
-    }
-
-    function renderQuotes(quotesData) {
-      const qList = document.getElementById('quotes-list');
-      if (!qList) return;
-
-      const items = Object.entries(quotesData).filter(([sym]) => sym !== 'NIFTY_SPOT').slice(0, 16);
-      if (items.length === 0) {
-        qList.innerHTML = '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No active quotes.</div>';
-        return;
-      }
-
-      let html = '';
-      for (const [sym, q] of items) {
-        const ask = q.ask ?? q.best_ask ?? 0;
-        const bid = q.bid ?? q.best_bid ?? 0;
-        const outlay = ask * 65;
-        const isSafe = ask <= 38.0;
-
-        html += `<div class="gf-list-item">
-          <div>
-            <div style="font-weight:700; color:#fff; font-family:'JetBrains Mono',monospace;">${sym}</div>
-            <div style="font-size:11px; color:var(--gf-text-secondary);">Bid: ₹${bid.toFixed(2)} | Ask: ₹${ask.toFixed(2)} | Outlay: ₹${Math.round(outlay)}</div>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:10px; font-weight:700; color:${isSafe ? 'var(--gf-green)' : 'var(--gf-red)'};">${isSafe ? 'SAFE OUTLAY' : '>₹38 CAP'}</span>
-            <button class="btn-buy-chip" onclick="orderOption('${sym}', 'BUY', ${ask})">BUY 65</button>
-          </div>
-        </div>`;
-      }
-      qList.innerHTML = html;
-    }
-
-    // --- Trading Controls ---
-    async function engageKillSwitch() {
-      if (!confirm("Engage Emergency Kill Switch?")) return;
-      await fetch('/api/kill-switch', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ action: 'engage', reason: 'Operator engaged from HUD' })
-      });
-    }
-
-    async function resetKillSwitch() {
-      const token = prompt("Enter operator authorization reset token:");
-      if (!token) return;
-      const resp = await fetch('/api/kill-switch', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ action: 'reset', token: token.trim() })
-      });
-      if (resp.ok) alert("Kill switch reset successfully.");
-      else alert("Reset rejected.");
-    }
-
-    async function resetPaperAccount() {
-      if (!confirm("Reset paper account virtual balance to ₹3,000 baseline?")) return;
-      await fetch('/api/paper/reset', { method: 'POST', headers: getAuthHeaders() });
-      await hydrateFromREST();
-    }
-
-    async function toggleAutoPilot() {
-      const resp = await fetch('/api/auto-trade/status');
-      const st = await resp.json();
-      await fetch('/api/auto-trade/toggle', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ enabled: !st.is_enabled })
-      });
-      await hydrateFromREST();
-    }
-
-    async function triggerSquareOffAll() {
-      if (!confirm("Execute square-off for all open positions immediately?")) return;
-      await fetch('/api/auto-trade/square-off', { method: 'POST', headers: getAuthHeaders() });
-      await hydrateFromREST();
-    }
-
-    async function evaluateChallengerGate() {
-      const resp = await fetch('/api/learning/evaluate-challenger', { method: 'POST', headers: getAuthHeaders() });
-      const data = await resp.json();
-      if (data.report && data.report.promoted) {
-        alert("🎉 CHALLENGER PROMOTED TO CHAMPION!\n\nNew Model ID: " + data.report.champion.model_id);
-      } else {
-        alert("Challenger Evaluation: " + (data.report ? data.report.reason : "No active candidate qualified."));
-      }
-    }
-
-    async function orderOption(symbol, side, price) {
-      const resp = await fetch('/api/paper/order', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ symbol, side, price, quantity: 65 })
-      });
-      const res = await resp.json();
-      if (res.error) alert(res.error);
-      else if (res.status === 'REJECTED') alert("Rejected by Risk Kernel: " + res.rejection_reason);
-      else alert("Order filled: " + symbol + " @ ₹" + res.fill_price);
-      await hydrateFromREST();
+        list.innerHTML = html;
+      } catch (e) {}
     }
 
     async function loadOrders() {
-      const resp = await fetch('/api/orders');
-      const orders = await resp.json();
-      const oList = document.getElementById('orders-list');
-      if (oList && orders) {
-        let html = '';
-        orders.slice(0, 10).forEach(o => {
-          html += `<div class="gf-list-item">
-            <div>
-              <div style="font-weight:700; color:#fff;">${o.side} ${o.quantity}x ${o.symbol}</div>
-              <div style="font-size:11px; color:var(--gf-text-secondary);">Status: ${o.status} | Price: ₹${o.fill_price || o.requested_price}</div>
-            </div>
-            <div style="font-size:11px; color:var(--gf-red);">Fees: ₹${o.total_costs.toFixed(2)}</div>
-          </div>`;
+      try {
+        const resPos = await fetch('/api/positions', { headers: getAuthHeaders() });
+        const posList = document.getElementById('positions-list');
+        if (resPos.ok) {
+          const positions = await resPos.json();
+          if (positions.length === 0) {
+            posList.innerHTML = '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No open positions held. 1-Lot capital floor intact.</div>';
+          } else {
+            let phtml = '';
+            positions.forEach(p => {
+              const pnlCol = p.unrealized_pnl >= 0 ? 'var(--gf-green)' : 'var(--gf-red)';
+              phtml += `
+                <div class="gf-list-item">
+                  <div>
+                    <strong style="color:#fff;">${p.symbol}</strong>
+                    <div style="font-size:11px; color:var(--gf-text-secondary);">Qty: ${p.quantity} @ ₹${Number(p.average_price).toFixed(2)} | LTP: ₹${Number(p.current_price).toFixed(2)}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-family:'JetBrains Mono',monospace; font-weight:700; color:${pnlCol};">
+                      ${p.unrealized_pnl >= 0 ? '+' : ''}₹${Number(p.unrealized_pnl).toFixed(2)}
+                    </div>
+                    <button class="btn-danger-act" style="padding:2px 8px; font-size:11px; margin-top:4px;" onclick="triggerSquareOffAll()">Exit</button>
+                  </div>
+                </div>
+              `;
+            });
+            posList.innerHTML = phtml;
+          }
+        }
+
+        const resTrd = await fetch('/api/trades', { headers: getAuthHeaders() });
+        const trdList = document.getElementById('trades-list');
+        if (resTrd.ok) {
+          const trades = await resTrd.json();
+          if (trades.length === 0) {
+            trdList.innerHTML = '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No trade execution records yet.</div>';
+          } else {
+            let thtml = '';
+            trades.slice(0, 10).forEach(t => {
+              thtml += `
+                <div class="gf-list-item">
+                  <div>
+                    <span style="font-weight:700; color:${t.side === 'BUY' ? 'var(--gf-green)' : 'var(--gf-red)'};">${t.side}</span>
+                    <span style="color:#fff; margin-left:6px;">${t.quantity}x ${t.symbol}</span>
+                    <div style="font-size:11px; color:var(--gf-text-secondary);">${new Date(t.timestamp).toLocaleTimeString('en-IN')} • Fees: ₹${Number(t.total_costs).toFixed(2)}</div>
+                  </div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-weight:700; color:#fff;">
+                    ₹${Number(t.price).toFixed(2)}
+                  </div>
+                </div>
+              `;
+            });
+            trdList.innerHTML = thtml;
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function loadMacroStatus() {
+      try {
+        const res = await fetch('/api/global-macro/status', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.macro) {
+          const bEl = document.getElementById('macro-brent-price');
+          const dEl = document.getElementById('macro-dxy-price');
+          const gEl = document.getElementById('macro-gift-gap');
+          if (bEl) bEl.innerText = `$${Number(data.macro.brent_crude_usd).toFixed(2)}`;
+          if (dEl) dEl.innerText = Number(data.macro.dollar_index_dxy).toFixed(2);
+          if (gEl) gEl.innerText = `${data.macro.gift_nifty_gap_pts >= 0 ? '+' : ''}${data.macro.gift_nifty_gap_pts} pts`;
+        }
+        if (data.fusion) {
+          const fEl = document.getElementById('macro-fear-idx');
+          if (fEl) fEl.innerText = Number(data.fusion.geopolitical_fear_index).toFixed(2);
+        }
+      } catch (e) {}
+    }
+
+    // --- User Actions ---
+    async function quickBuyOrder(symbol, price) {
+      if (!confirm(`Place paper BUY order for 1 lot (65 units) of ${symbol} @ ~₹${price}?`)) return;
+      try {
+        const res = await fetch('/api/paper/order', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            symbol: symbol,
+            side: 'BUY',
+            order_type: 'MARKET',
+            quantity: 65,
+            price: price
+          })
         });
-        oList.innerHTML = html || '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No orders recorded.</div>';
+        const data = await res.json();
+        if (data.status === 'FILLED') {
+          alert(`Order Filled! 65 units @ ₹${data.fill_price}. Friction fee: ₹${data.total_charges_inr}`);
+          updatePnL();
+          loadOrders();
+        } else {
+          alert(`Order Rejected: ${data.rejection_reason || 'Check risk limits'}`);
+        }
+      } catch (e) {
+        alert('Execution failed: ' + e.message);
       }
     }
 
-    async function loadTrades() {
-      const resp = await fetch('/api/trades');
-      const trades = await resp.json();
-      const tList = document.getElementById('trades-list');
-      if (tList && trades) {
-        let html = '';
-        trades.slice(0, 10).forEach(t => {
-          html += `<div class="gf-list-item">
-            <div>
-              <div style="font-weight:700; color:#fff;">${t.side} ${t.quantity}x ${t.symbol}</div>
-              <div style="font-size:11px; color:var(--gf-text-secondary);">Fill: ₹${t.price.toFixed(2)} | Turnover: ₹${t.turnover.toFixed(2)}</div>
-            </div>
-            <div style="font-size:11px; color:var(--gf-red);">Friction: ₹${t.total_costs.toFixed(2)}</div>
-          </div>`;
+    async function triggerSquareOffAll() {
+      if (!confirm('Execute emergency square-off for all open positions at market?')) return;
+      try {
+        const res = await fetch('/api/auto-trade/square-off', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ reason: 'MANUAL_DASHBOARD_PANIC' })
         });
-        tList.innerHTML = html || '<div style="text-align:center; padding:15px; color:var(--gf-text-secondary);">No trades executed.</div>';
+        const data = await res.json();
+        alert(`Square-off triggered: ${JSON.stringify(data)}`);
+        updatePnL();
+        loadOrders();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function engageKillSwitch() {
+      const reason = prompt('Enter Kill Switch Engagement Reason:', 'Operator emergency manual halt');
+      if (!reason) return;
+      try {
+        const res = await fetch('/api/kill-switch', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ action: 'ENGAGE', reason: reason })
+        });
+        const data = await res.json();
+        alert('Emergency Kill Switch ENGAGED.');
+        checkKillSwitch();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function resetKillSwitch() {
+      if (!confirm('Disengage Kill Switch and restore trading permissions?')) return;
+      try {
+        const res = await fetch('/api/kill-switch', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ action: 'DISENGAGE' })
+        });
+        const data = await res.json();
+        alert('Kill Switch Disengaged.');
+        checkKillSwitch();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function resetPaperAccount() {
+      if (!confirm('Reset Paper Account to pristine baseline of ₹3,000.00?')) return;
+      try {
+        const res = await fetch('/api/paper/reset', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ initial_capital: 3000.0 })
+        });
+        const data = await res.json();
+        alert('Account reset successfully to ₹3,000 baseline.');
+        updatePnL();
+        loadOrders();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function toggleAutoPilot() {
+      try {
+        const res = await fetch('/api/auto-trade/toggle', { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        const badge = document.getElementById('auto-trade-badge');
+        const btn = document.getElementById('btn-toggle-auto');
+        if (data.auto_trading_enabled) {
+          badge.innerText = '🟢 AUTO ON';
+          badge.style.background = 'var(--gf-green-pill)';
+          badge.style.color = 'var(--gf-green)';
+          btn.innerText = 'Pause Auto-Pilot';
+        } else {
+          badge.innerText = '⏸️ PAUSED';
+          badge.style.background = 'rgba(255,255,255,0.1)';
+          badge.style.color = 'var(--gf-text-secondary)';
+          btn.innerText = 'Enable Auto-Pilot';
+        }
+      } catch (e) {}
+    }
+
+    async function evaluateChallengerGate() {
+      try {
+        const res = await fetch('/api/learning/evaluate-challenger', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        alert(`Evaluation Outcome: ${data.decision} (Reason: ${data.reason})`);
+      } catch (e) {
+        alert('Evaluation Error: ' + e.message);
       }
     }
 
     async function calculateGreeksUI() {
-      const spot = parseFloat(document.getElementById('bs-spot')?.value) || 23329;
-      const strike = parseFloat(document.getElementById('bs-strike')?.value) || 23350;
-      const days = parseFloat(document.getElementById('bs-days')?.value) || 4;
-      const optType = document.getElementById('bs-type')?.value || 'CE';
-      const res = await fetch('/api/greeks/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spot, strike, days_to_expiry: days, iv: 0.145, option_type: optType })
-      });
-      const data = await res.json();
+      const spot = parseFloat(document.getElementById('bs-spot').value);
+      const strike = parseFloat(document.getElementById('bs-strike').value);
+      const days = parseFloat(document.getElementById('bs-days').value);
+      const optType = document.getElementById('bs-type').value;
+
       const box = document.getElementById('greeks-result-box');
-      if (box && data.greeks) {
-        const g = data.greeks;
-        box.innerHTML = `<div style="padding:10px; background:#303134; border-radius:8px;">
-          <div>Price: ₹${g.theoretical_price.toFixed(2)} | Outlay: ₹${Math.round(g.theoretical_price*65)}</div>
-          <div>Delta: ${g.delta.toFixed(4)} | Gamma: ${g.gamma.toFixed(5)}</div>
-          <div>Theta: ${g.theta.toFixed(2)} pts/day | Vega: ${g.vega.toFixed(2)}</div>
-        </div>`;
+      box.innerText = 'Calculating Black-Scholes Greeks...';
+
+      try {
+        const res = await fetch('/api/greeks/calculate', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            spot: spot,
+            strike: strike,
+            days_to_expiry: days,
+            option_type: optType,
+            iv: 0.14
+          })
+        });
+        const g = await res.json();
+        box.innerHTML = `
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; background:#1f1f1f; padding:10px; border-radius:8px;">
+            <div>Delta: <strong style="color:#8ab4f8;">${g.delta}</strong></div>
+            <div>Gamma: <strong style="color:#8ab4f8;">${g.gamma}</strong></div>
+            <div>Theta: <strong style="color:var(--gf-red);">${g.theta_day}/day</strong></div>
+            <div>Vega: <strong style="color:#81c995;">${g.vega}</strong></div>
+            <div>Rho: <strong>${g.rho}</strong></div>
+            <div>Theo Price: <strong>₹${g.theoretical_price}</strong></div>
+          </div>
+        `;
+      } catch (e) {
+        box.innerText = 'Calculation error: ' + e.message;
       }
     }
 
-    // Init on DOMContentLoaded
+    // --- Lifecycle Initialization ---
     window.addEventListener('DOMContentLoaded', () => {
       initFinanceChart();
-      hydrateFromREST();
       initWebSocket();
+
+      // Deep linking via URL hash (e.g. /#chain or /#trading)
+      const initialHash = window.location.hash.replace('#', '');
+      if (initialHash && document.getElementById('tab-' + initialHash)) {
+        switchMainTab(initialHash);
+      } else {
+        switchMainTab('overview');
+      }
+
+      // Continuous polling timers
+      updatePnL();
+      checkMarketStatus();
+      checkKillSwitch();
+      hydrateFromREST();
+      loadOrders();
+
+      setInterval(updatePnL, 4000);
+      setInterval(checkMarketStatus, 10000);
+      setInterval(checkKillSwitch, 5000);
+      setInterval(hydrateFromREST, 15000);
     });
   </script>
 </body>
