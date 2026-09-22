@@ -1626,7 +1626,12 @@
     function initWebSocket() {
       const loc = window.location;
       const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = wsProtocol + '//' + loc.host + '/ws/stream';
+      const urlParams = new URLSearchParams(loc.search);
+      const apiKey = urlParams.get('api_key') || localStorage.getItem('serq_api_key') || '';
+      let wsUrl = wsProtocol + '//' + loc.host + '/ws/stream';
+      if (apiKey) {
+        wsUrl += '?api_key=' + encodeURIComponent(apiKey);
+      }
 
       ws = new WebSocket(wsUrl);
 

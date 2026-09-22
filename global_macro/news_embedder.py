@@ -170,3 +170,6 @@ class FinancialNewsEmbedder:
 
 
 news_embedder = FinancialNewsEmbedder()
+# Quant accuracy alias: explicitly denotes feature encoding architecture
+FinancialNewsFeatureEncoder = FinancialNewsEmbedder
+news_feature_encoder = news_embedder

@@ -69,10 +69,11 @@ class PutCallParityArbitrageScanner(BaseStrategy):
         actual_diff_sell_c = ce_snap.best_bid - pe_snap.best_ask
         mispricing_reversal = actual_diff_sell_c - theoretical_diff
 
-        # 4-leg round trip transaction friction for arbitrage:
-        # Brokerage (4 x ₹20 = ₹80) + STT + Turnover + GST + Stamp Duty ~= ~₹180 - ₹240
-        # On 65 lot size: friction hurdle is approx 3.0 to 3.5 index points.
-        net_edge_reversal = mispricing_reversal - 3.2
+        # Calculate dynamic multi-leg statutory friction via CostEngine
+        c_cost_rev = cost_engine.calculate_order_costs("SELL", ce_snap.best_bid, self.lot_size)
+        p_cost_rev = cost_engine.calculate_order_costs("BUY", pe_snap.best_ask, self.lot_size)
+        friction_pts_reversal = round((c_cost_rev.total_costs + p_cost_rev.total_costs + 40.0) / self.lot_size, 2)
+        net_edge_reversal = mispricing_reversal - friction_pts_reversal
 
         if net_edge_reversal > self.min_discrepancy_pts:
             # Reversal opportunity found!
@@ -102,7 +103,7 @@ class PutCallParityArbitrageScanner(BaseStrategy):
                     "estimated_net_profit_pts": round(net_edge_reversal, 2),
                     "estimated_net_profit_inr": round(net_edge_reversal * self.lot_size, 2),
                     "span_margin_required_inr": 138000.0,
-                    "friction_pts": 3.2
+                    "friction_pts": friction_pts_reversal
                 }
             )
             signals.append(sig)
@@ -113,7 +114,11 @@ class PutCallParityArbitrageScanner(BaseStrategy):
         # -------------------------------------------------------------
         actual_diff_buy_c = ce_snap.best_ask - pe_snap.best_bid
         mispricing_conversion = theoretical_diff - actual_diff_buy_c
-        net_edge_conversion = mispricing_conversion - 3.2
+
+        c_cost_conv = cost_engine.calculate_order_costs("BUY", ce_snap.best_ask, self.lot_size)
+        p_cost_conv = cost_engine.calculate_order_costs("SELL", pe_snap.best_bid, self.lot_size)
+        friction_pts_conversion = round((c_cost_conv.total_costs + p_cost_conv.total_costs + 40.0) / self.lot_size, 2)
+        net_edge_conversion = mispricing_conversion - friction_pts_conversion
 
         if net_edge_conversion > self.min_discrepancy_pts:
             # Conversion opportunity found!

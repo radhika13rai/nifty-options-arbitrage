@@ -44,6 +44,28 @@ class MarketDataFeed:
             except Exception as e:
                 logger.error(f"Error in subscriber callback: {e}")
 
+    def build_subscription_payload(self, spot_price: float = 23414.30) -> dict:
+        """
+        Constructs subscription payload subscribing to NIFTY spot ticker
+        AND active NSE_FNO options contracts (Quote / Full packets: LTP, Depth, Bid/Ask, OI).
+        """
+        instruments = [
+            {"ExchangeSegment": "IDX_I", "SecurityId": "13"}
+        ]
+        # Calculate ATM strike and active liquid strikes (ATM ± 5 strikes)
+        atm = round(spot_price / 50.0) * 50
+        strikes = [atm + (i * 50) for i in range(-5, 6)]
+
+        for k in strikes:
+            instruments.append({"ExchangeSegment": "NSE_FNO", "SecurityId": f"NIFTY_CE_{k}"})
+            instruments.append({"ExchangeSegment": "NSE_FNO", "SecurityId": f"NIFTY_PE_{k}"})
+
+        return {
+            "RequestCode": 21,  # Quote / Full Depth packet mode
+            "InstrumentCount": len(instruments),
+            "InstrumentList": instruments
+        }
+
     async def start(self) -> None:
         """Starts market feed streaming."""
         if self.is_running:
@@ -99,18 +121,13 @@ class MarketDataFeed:
                 async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10) as ws:
                     logger.info("MarketDataFeed: Successfully connected to DhanHQ Live Market Feed.")
                     
-                    # Dispatch initial subscription for NIFTY Index & ATM Options
-                    sub_payload = {
-                        "RequestCode": 15,
-                        "InstrumentCount": 1,
-                        "InstrumentList": [
-                            {"ExchangeSegment": "IDX_I", "SecurityId": "13"}
-                        ]
-                    }
+                    # Dispatch dynamic subscription for NIFTY Index & active NSE_FNO Options
+                    sub_payload = self.build_subscription_payload()
                     try:
                         await ws.send(json.dumps(sub_payload))
+                        logger.info(f"MarketDataFeed: Subscribed to {sub_payload['InstrumentCount']} instruments across IDX_I and NSE_FNO.")
                     except Exception as e:
-                        logger.debug(f"MarketDataFeed: Subscription packet: {e}")
+                        logger.debug(f"MarketDataFeed: Subscription packet error: {e}")
 
                     while self.is_running:
                         msg = await ws.recv()

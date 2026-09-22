@@ -47,6 +47,46 @@ class KillSwitch:
             self._secret_key = secrets.token_hex(32)
             logger.info("Initialized ephemeral cryptographic secret for session lifecycle.")
 
+        self._load_persisted_state()
+
+    def _load_persisted_state(self) -> None:
+        """Restores latching state from SQLite to survive process restarts."""
+        try:
+            from database.db import db_manager
+            rows = db_manager.execute_query("SELECT value FROM system_state WHERE key = 'kill_switch'")
+            if rows:
+                import json
+                state = json.loads(rows[0]["value"])
+                if state.get("is_engaged"):
+                    with self._lock:
+                        self._is_engaged = True
+                        self._engaged_at = state.get("engaged_at")
+                        self._reason = state.get("reason", "RESTORED_FROM_PERSISTED_STATE")
+                        self._triggered_by = state.get("triggered_by", "SYSTEM_RESTART")
+                    logger.warning(f"Restored persisted KILL_SWITCH state from database: engaged due to '{self._reason}'")
+        except Exception as e:
+            logger.debug(f"Could not load persisted kill-switch state: {e}")
+
+    def _persist_state(self) -> None:
+        """Persists current state to SQLite for durability across crashes and restarts."""
+        try:
+            from database.db import db_manager
+            import json
+            with self._lock:
+                payload = json.dumps({
+                    "is_engaged": self._is_engaged,
+                    "engaged_at": self._engaged_at,
+                    "reason": self._reason,
+                    "triggered_by": self._triggered_by
+                })
+            db_manager.execute_write(
+                "INSERT INTO system_state (key, value, updated_at) VALUES ('kill_switch', ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;",
+                (payload, time.time())
+            )
+        except Exception as e:
+            logger.debug(f"Could not persist kill-switch state: {e}")
+
     @property
     def is_engaged(self) -> bool:
         with self._lock:
@@ -82,6 +122,7 @@ class KillSwitch:
                 self._engaged_at = time.time()
                 self._reason = reason
                 self._triggered_by = triggered_by
+            self._persist_state()
         logger.critical(f"EMERGENCY KILL SWITCH ENGAGED! Reason: {reason} (Source: {triggered_by})")
         return self.get_status()
 
@@ -105,6 +146,7 @@ class KillSwitch:
                 self._engaged_at = None
                 self._reason = "RESET_TO_NORMAL"
                 self._triggered_by = "OPERATOR"
+            self._persist_state()
         logger.warning("Kill switch disengaged by verified operator HMAC-SHA256 signature.")
         return self.get_status()
 

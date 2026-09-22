@@ -79,8 +79,15 @@ CREATE TABLE IF NOT EXISTS daily_pnl (
     updated_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS system_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_symbol ON orders(symbol);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+

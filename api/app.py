@@ -234,11 +234,31 @@ async def get_arbitrage_opportunities(request):
     spot_price = spot_snap.mid_price
     opportunities = []
 
-    # 1. Scan Put-Call Parity across active strike pairs
-    strikes = [24400, 24450, 24500, 24550, 24600]
+    # 1. Dynamic ATM strike calculation and active weekly expiry resolution
+    atm = round(spot_price / 50.0) * 50
+    strikes = [atm + (i * 50) for i in range(-2, 3)]
+
+    import datetime
+    today = datetime.date.today()
+    days_ahead = (3 - today.weekday()) % 7
+    if days_ahead == 0 and datetime.datetime.now().hour >= 15 and datetime.datetime.now().minute >= 30:
+        days_ahead = 7
+    next_thursday = today + datetime.timedelta(days=days_ahead)
+    expiry = next_thursday.strftime("%Y-%m-%d")
+
+    # Check if active orderbooks exist with a specific expiry code
+    all_snaps = orderbook_manager.get_all_snapshots()
+    for s_name in all_snaps:
+        if s_name.startswith("NIFTY_20") and ("_CE" in s_name or "_PE" in s_name):
+            parts = s_name.split("_")
+            if len(parts) >= 4:
+                expiry = parts[1]
+                break
+
+    # 1. Scan Put-Call Parity across dynamic ATM strike pairs
     for k in strikes:
-        ce_sym = f"NIFTY_2026-09-24_{k}_CE"
-        pe_sym = f"NIFTY_2026-09-24_{k}_PE"
+        ce_sym = f"NIFTY_{expiry}_{k}_CE"
+        pe_sym = f"NIFTY_{expiry}_{k}_PE"
         sigs = put_call_parity_scanner.scan_strike(k, ce_sym, pe_sym, spot_price)
         for sig in sigs:
             opportunities.append({
@@ -254,10 +274,10 @@ async def get_arbitrage_opportunities(request):
     for i in range(len(strikes) - 1):
         k1 = strikes[i]
         k2 = strikes[i+1]
-        c1 = f"NIFTY_2026-09-24_{k1}_CE"
-        c2 = f"NIFTY_2026-09-24_{k2}_CE"
-        p1 = f"NIFTY_2026-09-24_{k1}_PE"
-        p2 = f"NIFTY_2026-09-24_{k2}_PE"
+        c1 = f"NIFTY_{expiry}_{k1}_CE"
+        c2 = f"NIFTY_{expiry}_{k2}_CE"
+        p1 = f"NIFTY_{expiry}_{k1}_PE"
+        p2 = f"NIFTY_{expiry}_{k2}_PE"
         box_sig = box_spread_scanner.scan_box(k1, k2, c1, c2, p1, p2)
         if box_sig:
             opportunities.append({
@@ -354,7 +374,13 @@ async def websocket_stream(websocket: WebSocket):
     """
     High-frequency WebSocket endpoint for the Android dashboard HUD.
     Pushes live orderbook, PnL, risk alerts, and arbitrage telemetry every 250ms.
+    Enforces cryptographic or local authentication check prior to accepting connection.
     """
+    from api.auth import is_websocket_authenticated
+    if not is_websocket_authenticated(websocket):
+        await websocket.close(code=1008, reason="Unauthorized: Valid API key required")
+        return
+
     await websocket.accept()
     try:
         while True:
@@ -474,50 +500,72 @@ async def get_ml_status(request):
 
 
 async def trigger_ml_retrain(request):
-    """Triggers an online walk-forward adaptation step using empirical trade and market features."""
-    trades = await db_manager.get_recent_trades(limit=25)
+    """Triggers an online walk-forward adaptation step using empirical round-trip trade P&L."""
     formatted = []
-    
-    for t in trades:
-        sym = str(t.get("symbol", ""))
-        snap = orderbook_manager.get_snapshot(sym)
-        if snap:
-            fv = feature_extractor.extract_features(snap).to_list()
-        else:
-            # Baseline dynamic microstructure vector
-            fv = [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5]
-            
-        qty = int(t.get("quantity", 65))
-        net_cash = float(t.get("net_cash_flow", 0.0))
-        points_moved = round(net_cash / qty, 2) if qty > 0 else 0.0
 
-        formatted.append({
-            "features": fv,
-            "option_type": "CE" if sym.endswith("CE") or "_CE" in sym else "PE",
-            "points_moved": points_moved,
-            "net_pnl": net_cash
-        })
+    # 1. Primary source: Verified round-trip trades from AutoExecutionEngine history
+    if auto_engine._trade_history:
+        for t in auto_engine._trade_history[-25:]:
+            sym = t.get("symbol", "")
+            snap = orderbook_manager.get_snapshot(sym)
+            fv = feature_extractor.extract_features(snap).to_list() if snap else [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5]
+            formatted.append({
+                "features": fv,
+                "option_type": "CE" if "CE" in sym else "PE",
+                "points_moved": float(t.get("points_moved", 0.0)),
+                "net_pnl": float(t.get("net_pnl", 0.0))
+            })
 
-    # If no recorded trades exist, sample from current active orderbook snapshots
+    # 2. Secondary source: Pair BUY and SELL executions from DB into realized round-trips
+    if not formatted:
+        trades = await db_manager.get_recent_trades(limit=50)
+        by_symbol = {}
+        for t in reversed(trades):
+            sym = str(t.get("symbol", ""))
+            by_symbol.setdefault(sym, []).append(t)
+
+        for sym, sym_trades in by_symbol.items():
+            buys = [t for t in sym_trades if t.get("side") == "BUY"]
+            sells = [t for t in sym_trades if t.get("side") == "SELL"]
+            for b, s in zip(buys, sells):
+                b_price = float(b.get("price", 0.0))
+                s_price = float(s.get("price", 0.0))
+                qty = int(min(b.get("quantity", 65), s.get("quantity", 65)))
+                pts = round(s_price - b_price, 2)
+                gross = round(pts * qty, 2)
+                fees = float(b.get("total_costs", 24.8)) + float(s.get("total_costs", 27.2))
+                net = round(gross - fees, 2)
+                snap = orderbook_manager.get_snapshot(sym)
+                fv = feature_extractor.extract_features(snap).to_list() if snap else [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5]
+                formatted.append({
+                    "features": fv,
+                    "option_type": "CE" if "CE" in sym else "PE",
+                    "points_moved": pts,
+                    "net_pnl": net
+                })
+
+    # 3. Fallback: Microstructure sampling from active snapshots with exact round-trip cost hurdle
     if not formatted:
         snapshots = orderbook_manager.get_all_snapshots()
         for sym, snap in list(snapshots.items())[:10]:
             fv = feature_extractor.extract_features(snap).to_list()
             diff = round(snap.micro_price - snap.mid_price, 2)
+            rt = cost_engine.calculate_round_trip("BUY", snap.mid_price, max(0.05, snap.micro_price), config.market.nifty_lot_size)
             formatted.append({
                 "features": fv,
                 "option_type": "CE" if "CE" in sym else "PE",
                 "points_moved": diff,
-                "net_pnl": round((diff * 65) - 52.02, 2)
+                "net_pnl": round((diff * config.market.nifty_lot_size) - rt.total_friction, 2)
             })
 
-    # Fallback to feature extractor baseline if orderbooks empty
+    # 4. Fallback baseline if orderbooks empty
     if not formatted:
+        rt = cost_engine.calculate_round_trip("BUY", 25.0, 25.0, config.market.nifty_lot_size)
         formatted = [{
             "features": [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.02, 0.5],
             "option_type": "CE",
             "points_moved": 0.0,
-            "net_pnl": -52.02
+            "net_pnl": -rt.total_friction
         }]
 
     metrics = learning_engine.run_daily_adaptation_step(formatted)

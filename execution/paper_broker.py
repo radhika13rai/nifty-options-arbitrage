@@ -49,10 +49,7 @@ class PaperBroker(AbstractBrokerClient):
         client_oid = request.client_order_id or str(uuid.uuid4())[:8]
         order_id = f"PAP_{int(time.time()*1000)}_{client_oid}"
 
-        # 1. Fetch current orderbook snapshot
-        snapshot = orderbook_manager.get_snapshot(request.symbol)
-        if not snapshot:
-            reason = f"REJECTED: No orderbook snapshot for {request.symbol}"
+        async def _reject(reason: str) -> BrokerOrderResponse:
             await db_manager.record_order(
                 order_id=order_id,
                 client_order_id=client_oid,
@@ -77,7 +74,18 @@ class PaperBroker(AbstractBrokerClient):
                 rejection_reason=reason
             )
 
-        # 2. Determine realistic fill price using slippage model
+        # 1. Fetch current orderbook snapshot
+        snapshot = orderbook_manager.get_snapshot(request.symbol)
+        if not snapshot:
+            return await _reject(f"REJECTED: No orderbook snapshot for {request.symbol}")
+
+        # 2. Determine realistic fill price using slippage model and limit constraints
+        if request.order_type == "LIMIT" and request.price > 0:
+            if request.side == "BUY" and snapshot.best_ask > request.price:
+                return await _reject(f"LIMIT_UNFILLABLE: Best ask ₹{snapshot.best_ask:.2f} is above limit buy price ₹{request.price:.2f}")
+            elif request.side == "SELL" and snapshot.best_bid < request.price:
+                return await _reject(f"LIMIT_UNFILLABLE: Best bid ₹{snapshot.best_bid:.2f} is below limit sell price ₹{request.price:.2f}")
+
         if request.side == "BUY":
             slippage_res = slippage_model.calculate_buy_fill(
                 best_ask=snapshot.best_ask,

@@ -60,8 +60,8 @@ class AppConfig:
     # Capital constraints
     initial_capital_inr: float = float(os.getenv("INITIAL_CAPITAL_INR", "3000.0"))
     
-    # Server configuration
-    host: str = os.getenv("API_HOST", "0.0.0.0")
+    # Server configuration (defaults strictly to 127.0.0.1 loopback for secure local execution)
+    host: str = os.getenv("API_HOST", "127.0.0.1")
     port: int = int(os.getenv("API_PORT", "8000"))
     
     # Dhan Broker API Credentials (optional for live data quotes)

@@ -120,7 +120,8 @@ class AdaptiveLearningEngine:
         self.put_sampler = BayesianThompsonSampler(alpha_prior=4.0, beta_prior=3.0)
         self.epoch: int = 1
         self.current_regime: MarketRegime = "TRENDING_BULL"
-        self.statutory_hurdle_inr: float = 52.02  # Standard 1 lot round-trip tax
+        # Standard 1 lot round-trip tax hurdle calculated dynamically via CostEngine
+        self.statutory_hurdle_inr: float = cost_engine.calculate_round_trip("BUY", 25.0, 25.0, self.lot_size).total_friction
         self.last_adaptation_time: float = time.time()
         self._init_warm_weights()
 

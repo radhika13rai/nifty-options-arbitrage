@@ -13,6 +13,7 @@ from config import config
 from market_data.normalizer import MarketTick
 from market_data.orderbook import OrderbookSnapshot, orderbook_manager
 from strategies.base import BaseStrategy, TradingSignal
+from costs.transaction_costs import cost_engine
 
 
 class BoxSpreadArbitrageScanner(BaseStrategy):
@@ -71,8 +72,13 @@ class BoxSpreadArbitrageScanner(BaseStrategy):
 
         gross_profit_pts = discounted_payoff - debit_cost
         
-        # 4-leg statutory friction + crossing spread
-        friction_pts = 4.5  # 8 executions total round trip + taxes ~= ₹290 on 65 lot size
+        # 4-leg statutory friction dynamically calculated via CostEngine
+        c1_cost = cost_engine.calculate_order_costs("BUY", c1.best_ask, self.lot_size)
+        c2_cost = cost_engine.calculate_order_costs("SELL", c2.best_bid, self.lot_size)
+        p1_cost = cost_engine.calculate_order_costs("SELL", p1.best_bid, self.lot_size)
+        p2_cost = cost_engine.calculate_order_costs("BUY", p2.best_ask, self.lot_size)
+        total_friction = c1_cost.total_costs + c2_cost.total_costs + p1_cost.total_costs + p2_cost.total_costs
+        friction_pts = round(total_friction / self.lot_size, 2)
 
         net_profit_pts = gross_profit_pts - friction_pts
 

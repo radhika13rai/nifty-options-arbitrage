@@ -44,6 +44,8 @@ class ManagedTrade:
         "STATE_1_BREAKEVEN",
         "STATE_2_PROFIT_LOCK",
         "STATE_3_RR_1_2",
+        "STATE_EXIT_REQUESTED",
+        "STATE_EXIT_FAILED",
         "STATE_4_EXITED"
     ]
     highest_price_seen: float
@@ -59,6 +61,9 @@ class ManagedTrade:
     strike: Optional[float] = None
     days_to_expiry: float = 4.0
     iv: float = 0.155
+    exit_retry_count: int = 0
+    max_exit_retries: int = 3
+    last_exit_error: Optional[str] = None
 
 
 class AutoExecutionEngine:
@@ -73,7 +78,8 @@ class AutoExecutionEngine:
     """
 
     def __init__(self):
-        self.is_auto_trading_enabled: bool = True
+        # Fail-closed default: auto-trading is disabled on startup until explicitly enabled
+        self.is_auto_trading_enabled: bool = False
         self._active_trades: dict[str, ManagedTrade] = {}
         self._trade_history: list[dict] = []
 
@@ -102,25 +108,26 @@ class AutoExecutionEngine:
             return None
 
         daily_loss = max(0.0, -pnl_rep.gross_realized_pnl + pnl_rep.total_friction_inr)
-        max_trade_risk = (2.30 * signal.quantity) + 52.02
-        if (daily_loss + max_trade_risk) > config.risk.max_daily_loss_inr:
-            logger.warning(
-                f"AutoExecutionEngine: Pre-trade rejection: Daily loss headroom exceeded (daily loss ₹{daily_loss:.2f} + trade risk ₹{max_trade_risk:.2f} > ₹{config.risk.max_daily_loss_inr:.2f})"
-            )
-            return None
-
-        # Capital floor headroom invariant check (₹2,000 floor)
-        current_capital = pnl_manager.cash_balance
-        capital_floor = config.risk.capital_floor_inr
-        if current_capital <= capital_floor:
-            logger.warning(
-                f"AutoExecutionEngine: Pre-trade rejection: Current capital ₹{current_capital:.2f} is at or below non-negotiable floor ₹{capital_floor:.2f}"
-            )
-            return None
-        if (current_capital - max_trade_risk) < capital_floor:
-            logger.warning(
-                f"AutoExecutionEngine: Pre-trade rejection: Capital floor headroom exceeded (capital ₹{current_capital:.2f} - trade risk ₹{max_trade_risk:.2f} < floor ₹{capital_floor:.2f})"
-            )
+        
+        # Authoritative RiskKernel pre-trade validation gate
+        from risk.kernel import PreTradeOrderRequest, risk_kernel
+        risk_req = PreTradeOrderRequest(
+            symbol=signal.symbol,
+            side="BUY",
+            order_type=signal.order_type,
+            price=signal.suggested_price,
+            quantity=signal.quantity,
+            stop_loss_price=max(0.05, round(signal.suggested_price - 2.30, 2)),
+            target_price=round(signal.suggested_price + 6.90, 2)
+        )
+        risk_res = risk_kernel.validate_order(
+            order=risk_req,
+            current_cash_inr=pnl_manager.cash_balance,
+            daily_realized_loss_inr=daily_loss,
+            portfolio_equity=pnl_rep.total_portfolio_value
+        )
+        if not risk_res.passed:
+            logger.warning(f"AutoExecutionEngine: Signal rejected by authoritative RiskKernel: {risk_res.reason}")
             return None
 
         if not signal.is_capital_feasible or signal.action != "BUY":
@@ -131,16 +138,6 @@ class AutoExecutionEngine:
             logger.warning(
                 f"AutoExecutionEngine: Pre-trade rejection: Option price ₹{signal.suggested_price:.2f} > ₹38.00 cap"
             )
-            return None
-
-        # Cash balance check: 65 units * price <= cash
-        outlay_required = signal.suggested_price * signal.quantity
-        if outlay_required > pnl_manager.cash_balance:
-            logger.warning(
-                f"AutoExecutionEngine: Pre-trade rejection: Outlay ₹{outlay_required:.2f} exceeds cash ₹{pnl_manager.cash_balance:.2f}"
-            )
-            return None
-
         # Capital Invariant: Max 1 lot active trade under ₹3,000 capital
         if len(self._active_trades) >= 1:
             logger.debug("AutoExecutionEngine: Signal ignored - already holding active position")
@@ -309,12 +306,8 @@ class AutoExecutionEngine:
         trade.state = "STATE_4_EXITED"
         trade.exit_reason = reason
 
-        exit_order_type = "LIMIT" if reason.startswith("STOP_TRIGGERED") or reason.startswith("TARGET") else "MARKET"
-        eff_price = exit_price
-        if reason.startswith("STOP_TRIGGERED"):
-            eff_price = max(exit_price, trade.current_stop_price)
-        elif reason.startswith("TARGET"):
-            eff_price = trade.target_price
+        exit_order_type = "LIMIT" if reason.startswith("TARGET") else "MARKET"
+        eff_price = trade.target_price if reason.startswith("TARGET") else exit_price
 
         exit_req = BrokerOrderRequest(
             symbol=trade.symbol,
@@ -325,8 +318,68 @@ class AutoExecutionEngine:
             client_order_id=f"EXT_{trade.trade_id[:6]}_{int(time.time()*1000)}_{str(uuid.uuid4())[:4]}"
         )
 
+        trade.state = "STATE_EXIT_REQUESTED"
         resp = await paper_broker.place_order(exit_req)
-        actual_fill_price = resp.fill_price if resp and resp.status == "FILLED" else eff_price
+
+        # Handle broker exit rejection or non-fill strictly
+        if resp is None or resp.status != "FILLED":
+            trade.exit_retry_count += 1
+            err_msg = resp.rejection_reason if resp and resp.rejection_reason else "Order unfulfilled or rejected"
+            trade.last_exit_error = err_msg
+            trade.state = "STATE_EXIT_FAILED"
+
+            logger.error(
+                f"AutoExecutionEngine: Exit order failed for {trade.symbol} "
+                f"(attempt {trade.exit_retry_count}/{trade.max_exit_retries}): {err_msg}"
+            )
+
+            await db_manager.record_audit_log(
+                event_type="AUTO_TRADE_EXIT_FAILED",
+                severity="WARNING" if trade.exit_retry_count < trade.max_exit_retries else "CRITICAL",
+                component="AutoExecutionEngine",
+                details=f"Exit failed for {trade.symbol} (attempt {trade.exit_retry_count}/{trade.max_exit_retries}): {err_msg}"
+            )
+
+            # Retry with aggressive marketable MARKET order if retries remain
+            if trade.exit_retry_count < trade.max_exit_retries:
+                logger.info(f"AutoExecutionEngine: Retrying exit for {trade.symbol} with aggressive MARKET order...")
+                retry_req = BrokerOrderRequest(
+                    symbol=trade.symbol,
+                    side="SELL",
+                    order_type="MARKET",
+                    quantity=trade.quantity,
+                    price=0.0,
+                    client_order_id=f"EXT_RTRY_{trade.trade_id[:6]}_{int(time.time()*1000)}_{trade.exit_retry_count}"
+                )
+                resp = await paper_broker.place_order(retry_req)
+                if resp is None or resp.status != "FILLED":
+                    # Exit still unfulfilled: keep position open in _active_trades, no fake exit!
+                    return {
+                        "status": "EXIT_FAILED",
+                        "symbol": trade.symbol,
+                        "error": trade.last_exit_error,
+                        "retry_count": trade.exit_retry_count
+                    }
+            else:
+                # All retries exhausted! Escalate to emergency kill switch to protect capital
+                logger.critical(f"AutoExecutionEngine: Exit retries exhausted for {trade.symbol}. Engaging emergency kill switch!")
+                from risk.kill_switch import kill_switch
+                kill_switch.engage(
+                    f"Position exit failed for {trade.symbol} after {trade.max_exit_retries} attempts: {err_msg}",
+                    "EXIT_FAILURE"
+                )
+                return {
+                    "status": "EXIT_FAILED",
+                    "symbol": trade.symbol,
+                    "error": trade.last_exit_error,
+                    "retry_count": trade.exit_retry_count,
+                    "kill_switch_engaged": True
+                }
+
+        # Broker confirmed fill: transition to exited state
+        trade.state = "STATE_4_EXITED"
+        actual_fill_price = resp.fill_price
+
 
         # Calculate exact fee-adjusted Net P&L
         points_moved = round(actual_fill_price - trade.entry_price, 2)
