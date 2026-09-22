@@ -21,6 +21,7 @@ from portfolio.pnl import pnl_manager
 from costs.transaction_costs import cost_engine
 from ml.learner import learning_engine
 from ml.drift_guard import drift_guard
+from ml.champion_challenger import champion_challenger
 from database.db import db_manager
 from config import config
 
@@ -403,13 +404,44 @@ class AutoExecutionEngine:
             actual_net_pnl=net_pnl
         )
 
+        # Record Reconciled Episode to SQLite Learning Dataset
+        try:
+            episode_record = {
+                "episode_id": f"EP_{trade.trade_id}_{int(time.time()*1000)}",
+                "trade_id": trade.trade_id,
+                "symbol": trade.symbol,
+                "option_type": trade.option_type,
+                "entry_time_ms": trade.entry_time_ms,
+                "exit_time_ms": time.time() * 1000.0,
+                "entry_price": trade.entry_price,
+                "exit_price": actual_fill_price,
+                "quantity": trade.quantity,
+                "gross_pnl": gross_pnl,
+                "fees_friction": rt_costs.total_friction,
+                "net_pnl": net_pnl,
+                "points_moved": points_moved,
+                "is_win": net_pnl > 0,
+                "exit_reason": reason,
+                "features": trade.features_at_entry,
+                "macro_snapshot": {
+                    "entry_delta": trade.entry_delta,
+                    "exit_delta": trade.current_delta,
+                    "duration_sec": round((time.time() * 1000.0 - trade.entry_time_ms) / 1000.0, 1)
+                }
+            }
+            await db_manager.record_learning_episode(episode_record)
+        except Exception as e:
+            logger.error(f"AutoExecutionEngine: Failed to record learning episode: {e}")
+
         # Monitor Model Drift & Automatic Rollback Guard
         drift_guard.record_trade(
             net_pnl=net_pnl,
             gross_pnl=gross_pnl,
             points_moved=points_moved
         )
-        await drift_guard.evaluate_and_enforce()
+        drift_res = await drift_guard.evaluate_and_enforce()
+        if drift_res and drift_res.rollback_triggered:
+            champion_challenger.rollback_to_baseline("DRIFT_GUARD_TRIGGER")
 
         # Audit log into SQLite
         await db_manager.record_audit_log(

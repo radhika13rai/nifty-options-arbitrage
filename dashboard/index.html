@@ -963,6 +963,22 @@
           </div>
         </div>
 
+        <!-- Volatility Shock Stand-Down Alert Banner -->
+        <div id="mie-shock-alert-banner" style="display:none; background: rgba(255, 51, 102, 0.15); border: 1px solid var(--accent-red); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; color: #ff99aa; font-size: 11px; font-weight: 700;">
+          <span id="mie-shock-alert-text">⚡ VOLATILITY SHOCK STAND-DOWN ACTIVE: Macro shock detected. New entry signals paused.</span>
+        </div>
+
+        <!-- Live Classified News Headlines -->
+        <div style="background: #090e15; border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">
+            <span>DEDUPLICATED LIVE NEWS WIRE</span>
+            <span>TEMPORAL DECAY (t½=45m)</span>
+          </div>
+          <div id="mie-headlines-container">
+            <div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">Syncing verified wire headlines...</div>
+          </div>
+        </div>
+
         <!-- World Event Simulation Controls -->
         <div style="display: flex; gap: 8px; align-items: center;">
           <select id="scenario-selector" onchange="onScenarioSelect(this.value)" style="flex: 2; background: #090e15; color: #fff; border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 10px; font-size: 11px;">
@@ -991,14 +1007,14 @@
             </svg>
           </div>
           <div class="squircle-title-wrap">
-            <div class="squircle-pretag">ONLINE LEARNING (RLS & THOMPSON)</div>
-            <h3>Adaptive Regime Radar</h3>
-            <p>Continuous walk-forward weights with tax-aware loss</p>
+            <div class="squircle-pretag">ONLINE LEARNING & MODEL GOVERNANCE</div>
+            <h3>Adaptive Regime & Champion Governance</h3>
+            <p>16-D entry features • Champion/Challenger validation gate</p>
           </div>
           <span id="ai-epoch-badge" class="tag-badge tag-feasible">Epoch 1</span>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #090e15; border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #090e15; border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px;">
           <div>
             <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">REGIME DETECTION</div>
             <div id="ai-regime-text" style="font-weight: 800; color: var(--emerald); font-size: 14px; margin-top: 2px;">TRENDING BULL</div>
@@ -1009,10 +1025,21 @@
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: var(--text-muted);">Fee hurdle: ₹52.02 / lot deducted mathematically</span>
-          <button onclick="triggerAIRetrain()" class="btn-serq-secondary" style="padding: 6px 12px; font-size: 10px; font-weight: 800;">
-            ⚡ Run Adaptation Step
+        <!-- Champion / Challenger Model Status -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #090e15; border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px;">
+          <div>
+            <span style="color: var(--text-muted); font-size: 9px; font-weight: 700;">ACTIVE CHAMPION MODEL</span>
+            <div id="champion-model-text" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--emerald);">CHAMPION_BASELINE_V1 (Sharpe: 1.80)</div>
+          </div>
+          <span id="challenger-promo-badge" class="tag-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted);">Promotions: 0</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <button onclick="triggerAIRetrain()" class="btn-serq-secondary" style="flex: 1; padding: 7px 10px; font-size: 10px; font-weight: 800;">
+            ⚡ Retrain RLS
+          </button>
+          <button onclick="evaluateChallengerGate()" class="btn-serq-secondary" style="flex: 1; padding: 7px 10px; font-size: 10px; font-weight: 800; border-color: var(--accent-cyan); color: var(--accent-cyan);">
+            🎯 Evaluate Challenger
           </button>
         </div>
       </div>
@@ -1872,6 +1899,58 @@
         if (chkStep2) chkStep2.innerText = 'Posture: ' + gm.posture + ' • Crude: $' + gm.crude.toFixed(2);
       }
 
+      // 3.6 Market Intelligence & Alert Telemetry
+      if (data.market_intelligence) {
+        const mie = data.market_intelligence;
+        const alertBanner = document.getElementById('mie-shock-alert-banner');
+        if (alertBanner) {
+          if (mie.stand_down_active) {
+            alertBanner.style.display = 'block';
+            const alertText = document.getElementById('mie-shock-alert-text');
+            if (alertText) {
+              alertText.innerText = '⚡ VOLATILITY SHOCK STAND-DOWN ACTIVE (' + Math.round(mie.stand_down_remaining_sec) + 's remaining): ' + (mie.stand_down_reason || 'Macro volatility shock detected. New entries paused.');
+            }
+          } else {
+            alertBanner.style.display = 'none';
+          }
+        }
+
+        const mieHeadlinesEl = document.getElementById('mie-headlines-container');
+        if (mieHeadlinesEl && mie.headlines && mie.headlines.length > 0) {
+          let hHtml = '';
+          mie.headlines.forEach(h => {
+            const urgencyColor = h.urgency === 'CRITICAL_SHOCK' ? '#ff4d6d' : (h.urgency === 'ELEVATED' ? '#ffaa00' : 'var(--text-muted)');
+            const sentColor = h.decayed_sentiment > 0.05 ? 'var(--emerald)' : (h.decayed_sentiment < -0.05 ? 'var(--accent-red)' : 'var(--text-muted)');
+            hHtml += '<div style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:11px; display:flex; justify-content:space-between; align-items:center;">' +
+              '<div style="flex:1; margin-right:8px;"><span style="font-weight:700; color:' + urgencyColor + ';">[' + h.category + ']</span> ' + h.headline + '</div>' +
+              '<div style="font-family:monospace; font-size:10px; color:' + sentColor + ';">' + (h.decayed_sentiment > 0 ? '+' : '') + h.decayed_sentiment.toFixed(2) + '</div>' +
+            '</div>';
+          });
+          mieHeadlinesEl.innerHTML = hHtml;
+        }
+      }
+
+      // 3.7 Champion-Challenger Model Governance Telemetry
+      if (data.champion_challenger) {
+        const cc = data.champion_challenger;
+        const champEl = document.getElementById('champion-model-text');
+        if (champEl) {
+          champEl.innerText = cc.champion_id + ' (Sharpe: ' + cc.champion_sharpe.toFixed(2) + ' | Win: ' + (cc.champion_win_rate*100).toFixed(1) + '%)';
+        }
+        const promoBadge = document.getElementById('challenger-promo-badge');
+        if (promoBadge) {
+          if (cc.has_challenger) {
+            promoBadge.innerText = 'Challenger Active';
+            promoBadge.style.background = 'rgba(0, 230, 118, 0.15)';
+            promoBadge.style.color = 'var(--emerald)';
+          } else {
+            promoBadge.innerText = 'Promotions: ' + cc.promotions_count;
+            promoBadge.style.background = 'rgba(100, 116, 139, 0.15)';
+            promoBadge.style.color = 'var(--text-muted)';
+          }
+        }
+      }
+
       // 3.8 Autonomous Auto-Pilot & Trailing Stop Telemetry
       if (data.auto_trade) {
         const at = data.auto_trade;
@@ -2052,6 +2131,21 @@
       const res = await resp.json();
       if (res.success) {
         alert(res.message);
+      }
+    }
+
+    async function evaluateChallengerGate() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const apiKey = urlParams.get('api_key') || localStorage.getItem('serq_api_key') || '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['X-API-Key'] = apiKey;
+      
+      const resp = await fetch('/api/learning/evaluate-challenger', { method: 'POST', headers });
+      const data = await resp.json();
+      if (data.report && data.report.promoted) {
+        alert("🎉 CHALLENGER PROMOTED TO CHAMPION!\n\nNew Model ID: " + data.report.champion.model_id + "\nOut-of-Sample Win Rate: " + (data.report.promotion_record.win_rate * 100).toFixed(1) + "%\nSharpe Ratio: " + data.report.promotion_record.sharpe_ratio.toFixed(2) + "\nProfit Factor: " + data.report.promotion_record.profit_factor.toFixed(2) + "\n\nThe candidate model has successfully passed all out-of-sample risk and profitability gates and is now guiding live signal generation.");
+      } else {
+        alert("Challenger Gate Evaluation Result:\n\n" + (data.report ? data.report.reason : "No active challenger qualified for promotion.") + "\n\nChampion model remains in production.");
       }
     }
 

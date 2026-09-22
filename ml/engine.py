@@ -17,6 +17,8 @@ from costs.transaction_costs import cost_engine
 from global_macro.multimodal_fusion import multimodal_fusion
 from global_macro.indicators import macro_engine
 from global_macro.news_feed import news_feed
+from market_intelligence import market_intelligence
+from ml.champion_challenger import champion_challenger
 
 
 class AdaptiveMLStrategy(BaseStrategy):
@@ -69,6 +71,11 @@ class AdaptiveMLStrategy(BaseStrategy):
         if snapshot.spread > 0.60:
             return []
 
+        # 0. Market Intelligence Shock Stand-Down Defense
+        mie_snap = market_intelligence.get_snapshot()
+        if mie_snap.is_shock_stand_down_active:
+            return []
+
         # Extract normalized quantitative features
         feat_vec = feature_extractor.extract_features(snapshot)
         features = feat_vec.to_list()
@@ -85,8 +92,30 @@ class AdaptiveMLStrategy(BaseStrategy):
         if not should_trade:
             return []
 
-        # Check Global Macro & News Intelligence Fusion
+        # Extract unified 16-dimensional feature vector at inception
         macro_snap = macro_engine.get_snapshot()
+        delta_est = 0.45 if option_type == "CE" else -0.45
+        unified_features = feature_extractor.extract_unified_vector(
+            snapshot=snapshot,
+            atm_iv=0.155,
+            put_call_skew=0.0,
+            days_to_expiry=4.0,
+            delta=delta_est,
+            brent_pct_chg=macro_snap.brent_change_pct,
+            dxy_pct_chg=macro_snap.dxy_change_pct,
+            news_sentiment=mie_snap.news_sentiment_score,
+            tension_index=mie_snap.geopolitical_tension_index
+        )
+
+        # Check Champion model conviction
+        champ_score = champion_challenger.score_features(unified_features)
+        if option_type == "PE":
+            champ_score = -champ_score
+        if champ_score < 0.20:
+            # Model governance gate: Champion model lacks conviction
+            return []
+
+        # Check Global Macro & News Intelligence Fusion
         news_embs = news_feed.get_recent_embeddings()
         global_res = multimodal_fusion.fuse(macro_snap, news_embs)
 
@@ -134,8 +163,9 @@ class AdaptiveMLStrategy(BaseStrategy):
                 "confidence": confidence,
                 "epoch": self.learner.epoch,
                 "outlay_inr": round(ask * self.lot_size, 2),
-                "features": list(features),
-                "option_type": option_type
+                "features": list(unified_features),
+                "option_type": option_type,
+                "champion_id": champion_challenger.champion.model_id
             }
         )
 

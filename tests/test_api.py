@@ -225,3 +225,57 @@ def test_slippage_telemetry_endpoint():
         assert "avg_slippage_points" in data
         assert "avg_slippage_inr" in data
         assert "total_fills_analyzed" in data
+
+
+def test_market_intelligence_api_endpoints():
+    """Verify /api/intelligence/snapshot, alerts, and headline ingestion."""
+    with TestClient(app) as client:
+        # 1. Snapshot
+        resp = client.get("/api/intelligence/snapshot")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "news_sentiment_score" in data
+        assert "geopolitical_tension_index" in data
+        assert "is_shock_stand_down_active" in data
+
+        # 2. Alerts
+        resp_alt = client.get("/api/intelligence/alerts")
+        assert resp_alt.status_code == 200
+        alt_data = resp_alt.json()
+        assert "stand_down_active" in alt_data
+        assert "alerts" in alt_data
+
+        # 3. Post headline (novel -> PROCESSED)
+        h_resp = client.post(
+            "/api/intelligence/headline",
+            json={"headline": "Diplomatic agreement signed to ease Red Sea trade tariffs", "source": "API Test"}
+        )
+        assert h_resp.status_code == 200
+        h_data = h_resp.json()
+        assert h_data["status"] in ("PROCESSED", "DUPLICATE_DROPPED")
+
+
+def test_learning_governance_api_endpoints():
+    """Verify /api/learning/episodes, champion status, and challenger evaluation."""
+    with TestClient(app) as client:
+        # 1. Episodes
+        resp = client.get("/api/learning/episodes")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "count" in data
+        assert "episodes" in data
+
+        # 2. Champion Status
+        resp_c = client.get("/api/learning/champion")
+        assert resp_c.status_code == 200
+        c_data = resp_c.json()
+        assert "champion" in c_data
+        assert "weights" in c_data["champion"]
+        assert len(c_data["champion"]["weights"]) == 16
+
+        # 3. Evaluate Challenger
+        eval_resp = client.post("/api/learning/evaluate-challenger")
+        assert eval_resp.status_code == 200
+        e_data = eval_resp.json()
+        assert e_data["status"] == "SUCCESS"
+        assert "report" in e_data

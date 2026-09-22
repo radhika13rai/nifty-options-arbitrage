@@ -21,6 +21,7 @@ from global_macro.indicators import MacroIndicatorSnapshot, macro_engine
 from global_macro.news_embedder import NewsItem, NewsCategory, news_embedder
 from global_macro.news_feed import news_feed
 from global_macro.multimodal_fusion import multimodal_fusion
+from market_intelligence import market_intelligence
 
 logger = logging.getLogger("LiveMacroPoller")
 
@@ -230,6 +231,7 @@ class LiveMacroPoller:
                 sp500_change_pct=sp500_chg
             )
             macro_engine.update_snapshot(snap)
+            market_intelligence.evaluate_macro_shock(brent_chg, vix_val, vix_chg)
 
             # 3. Fetch RSS news items in worker thread
             news_items = await asyncio.to_thread(self._fetch_rss_news)
@@ -237,6 +239,7 @@ class LiveMacroPoller:
 
             for h, src, cat in news_items:
                 news_feed.add_headline(headline=h, source=src, category=cat)
+                market_intelligence.process_incoming_headline(raw_headline=h, source=src)
 
             # 4. Trigger multimodal fusion
             embs = news_feed.get_recent_embeddings()

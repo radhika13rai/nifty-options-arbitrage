@@ -187,5 +187,48 @@ class DatabaseManager:
     async def get_audit_logs(self, limit: int = 50) -> list[dict]:
         return await self.async_query("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
 
+    async def record_learning_episode(self, episode_data: dict) -> None:
+        query = """
+            INSERT INTO trade_learning_episodes (
+                episode_id, trade_id, symbol, option_type,
+                entry_time_ms, exit_time_ms, entry_price, exit_price,
+                quantity, gross_pnl, fees_friction, net_pnl,
+                points_moved, is_win, exit_reason,
+                features_json, macro_snapshot_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        params = (
+            episode_data["episode_id"],
+            episode_data["trade_id"],
+            episode_data["symbol"],
+            episode_data["option_type"],
+            float(episode_data["entry_time_ms"]),
+            float(episode_data["exit_time_ms"]),
+            float(episode_data["entry_price"]),
+            float(episode_data["exit_price"]),
+            int(episode_data["quantity"]),
+            float(episode_data["gross_pnl"]),
+            float(episode_data["fees_friction"]),
+            float(episode_data["net_pnl"]),
+            float(episode_data["points_moved"]),
+            1 if episode_data["is_win"] else 0,
+            episode_data.get("exit_reason", ""),
+            json.dumps(episode_data.get("features", [])),
+            json.dumps(episode_data.get("macro_snapshot", {})),
+            time.time()
+        )
+        await self.async_write(query, params)
+
+    async def get_learning_episodes(self, limit: int = 200, offset: int = 0) -> list[dict]:
+        return await self.async_query(
+            "SELECT * FROM trade_learning_episodes ORDER BY entry_time_ms DESC LIMIT ? OFFSET ?",
+            (limit, offset)
+        )
+
+    async def get_total_learning_episodes_count(self) -> int:
+        rows = await self.async_query("SELECT COUNT(*) as cnt FROM trade_learning_episodes")
+        return rows[0]["cnt"] if rows else 0
+
 
 db_manager = DatabaseManager()

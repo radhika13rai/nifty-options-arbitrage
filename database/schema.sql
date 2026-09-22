@@ -85,9 +85,32 @@ CREATE TABLE IF NOT EXISTS system_state (
     updated_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS trade_learning_episodes (
+    episode_id TEXT PRIMARY KEY,
+    trade_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    option_type TEXT NOT NULL,
+    entry_time_ms REAL NOT NULL,
+    exit_time_ms REAL NOT NULL,
+    entry_price REAL NOT NULL,
+    exit_price REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    gross_pnl REAL NOT NULL,
+    fees_friction REAL NOT NULL,
+    net_pnl REAL NOT NULL,
+    points_moved REAL NOT NULL,
+    is_win INTEGER NOT NULL,
+    exit_reason TEXT NOT NULL,
+    features_json TEXT NOT NULL,
+    macro_snapshot_json TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_symbol ON orders(symbol);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_episodes_entry_time ON trade_learning_episodes(entry_time_ms);
+CREATE INDEX IF NOT EXISTS idx_episodes_trade_id ON trade_learning_episodes(trade_id);
 

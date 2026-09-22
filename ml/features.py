@@ -174,5 +174,47 @@ class FeatureExtractor:
             volatility_rank=vol_rank
         )
 
+    def extract_unified_vector(
+        self,
+        snapshot: OrderbookSnapshot,
+        atm_iv: float = 0.15,
+        put_call_skew: float = 0.0,
+        days_to_expiry: float = 4.0,
+        delta: float = 0.50,
+        brent_pct_chg: float = 0.0,
+        dxy_pct_chg: float = 0.0,
+        news_sentiment: float = 0.0,
+        tension_index: float = 0.15
+    ) -> list[float]:
+        """
+        Extracts 16-dimensional unified feature vector at trade inception.
+        Fuses microstructure (8D), options skew (4D), and macro/news intelligence (4D).
+        """
+        base = self.extract_features(snapshot).to_list()  # 8 features
+        
+        # 4 Options Surface & Skew features
+        norm_iv = round((atm_iv - 0.15) / 0.10, 4)
+        norm_skew = round(put_call_skew / 0.05, 4)
+        norm_dte = round((days_to_expiry - 3.5) / 3.5, 4)
+        norm_delta = round(abs(delta), 4)
+
+        # 4 Macro & Market Intelligence features
+        norm_brent = round(brent_pct_chg / 3.0, 4)
+        norm_dxy = round(dxy_pct_chg / 1.0, 4)
+        norm_sent = round(news_sentiment, 4)
+        norm_tension = round(tension_index * 2.0 - 1.0, 4)
+
+        extended = [
+            norm_iv,
+            norm_skew,
+            norm_dte,
+            norm_delta,
+            norm_brent,
+            norm_dxy,
+            norm_sent,
+            norm_tension
+        ]
+        return base + extended
+
 
 feature_extractor = FeatureExtractor()

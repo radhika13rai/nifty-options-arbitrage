@@ -32,7 +32,9 @@ RESTRICTED_MUTATING_PATHS: Set[str] = {
     "/api/global-macro/scenario",
     "/api/global-macro/train",
     "/api/global-macro/poll",
-    "/api/greeks/calibrate"
+    "/api/greeks/calibrate",
+    "/api/intelligence/headline",
+    "/api/learning/evaluate-challenger"
 }
 
 # Public unauthenticated endpoints

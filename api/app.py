@@ -47,6 +47,8 @@ from scheduler.daily_routine import market_scheduler, MarketPhase
 from analytics.greeks import calculate_all_greeks, calculate_implied_volatility
 from analytics.strike_screener import strike_screener
 from analytics.volatility_surface import volatility_surface
+from market_intelligence import market_intelligence, alert_engine
+from ml.champion_challenger import champion_challenger
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("APIServer")
@@ -396,6 +398,8 @@ async def websocket_stream(websocket: WebSocket):
             macro_snap = macro_engine.get_snapshot()
             news_embs = news_feed.get_recent_embeddings()
             gm_fusion = multimodal_fusion.fuse(macro_snap, news_embs)
+            mie_snap = market_intelligence.get_snapshot()
+            recent_alerts = alert_engine.get_recent_alerts(limit=5)
 
             # 5. Quotes
             snaps = orderbook_manager.get_all_snapshots()
@@ -456,6 +460,23 @@ async def websocket_stream(websocket: WebSocket):
                     "dxy": macro_snap.dollar_index_dxy,
                     "gift_nifty_gap": macro_snap.gift_nifty_gap_pts,
                     "synthesis": gm_fusion.synthesis_reason
+                },
+                "market_intelligence": {
+                    "news_sentiment": mie_snap.news_sentiment_score,
+                    "geopolitical_tension": mie_snap.geopolitical_tension_index,
+                    "stand_down_active": mie_snap.is_shock_stand_down_active,
+                    "stand_down_remaining_sec": mie_snap.stand_down_remaining_sec,
+                    "stand_down_reason": mie_snap.stand_down_reason,
+                    "alerts": recent_alerts,
+                    "headlines": mie_snap.recent_headlines[:5]
+                },
+                "champion_challenger": {
+                    "champion_id": champion_challenger.champion.model_id,
+                    "champion_sharpe": champion_challenger.champion.metrics.sharpe_ratio,
+                    "champion_win_rate": champion_challenger.champion.metrics.win_rate,
+                    "has_challenger": champion_challenger.challenger is not None,
+                    "challenger_id": champion_challenger.challenger.model_id if champion_challenger.challenger else None,
+                    "promotions_count": len(champion_challenger.promotion_history)
                 },
                 "auto_trade": auto_engine.get_status(),
                 "scheduler": market_scheduler.get_status(),
@@ -744,6 +765,87 @@ async def get_drift_status(request):
     return JSONResponse(dataclasses.asdict(status))
 
 
+async def get_intelligence_snapshot(request):
+    """Returns real-time Market Intelligence snapshot (deduplicated, classified headlines & alerts)."""
+    snap = market_intelligence.get_snapshot()
+    return JSONResponse(dataclasses.asdict(snap))
+
+
+async def get_intelligence_alerts(request):
+    """Returns active market alerts and shock stand-down cooldown."""
+    return JSONResponse({
+        "stand_down_active": alert_engine.is_shock_stand_down_active(),
+        "stand_down_remaining_sec": alert_engine.get_remaining_stand_down_sec(),
+        "stand_down_reason": alert_engine.get_last_shock_reason(),
+        "alerts": alert_engine.get_recent_alerts(limit=30)
+    })
+
+
+async def post_intelligence_headline(request):
+    """Ingests, deduplicates, classifies, and evaluates a news wire headline."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    headline = str(data.get("headline", "")).strip()
+    if not headline:
+        return JSONResponse({"error": "Headline is required"}, status_code=400)
+
+    source = str(data.get("source", "Manual Wire"))
+    classified = market_intelligence.process_incoming_headline(headline, source=source)
+    is_dup = classified is None
+
+    return JSONResponse({
+        "status": "DUPLICATE_DROPPED" if is_dup else "PROCESSED",
+        "is_duplicate": is_dup,
+        "classification": dataclasses.asdict(classified) if classified else None,
+        "current_snapshot": dataclasses.asdict(market_intelligence.get_snapshot())
+    })
+
+
+async def get_learning_episodes(request):
+    """Returns reconciled closed-loop training episodes from SQLite."""
+    limit = int(request.query_params.get("limit", 50))
+    episodes = await db_manager.get_learning_episodes(limit=limit)
+    total = await db_manager.get_total_learning_episodes_count()
+    return JSONResponse({
+        "status": "SUCCESS",
+        "count": len(episodes),
+        "total_recorded_episodes": total,
+        "episodes": episodes
+    })
+
+
+async def get_champion_status(request):
+    """Returns Champion and Challenger model parameters, OOS metrics, and promotion history."""
+    return JSONResponse({
+        "champion": dataclasses.asdict(champion_challenger.champion),
+        "challenger": dataclasses.asdict(champion_challenger.challenger) if champion_challenger.challenger else None,
+        "promotion_history": champion_challenger.promotion_history
+    })
+
+
+async def evaluate_challenger_endpoint(request):
+    """
+    Trains Challenger model on reconciled historical episodes with 70/30 OOS split
+    and runs the strict institutional promotion gate.
+    """
+    episodes = await db_manager.get_learning_episodes(limit=500)
+    if not episodes:
+        from ml.dataset import ml_repo
+        episodes = ml_repo.get_all_episodes()
+
+    challenger = champion_challenger.train_challenger(episodes)
+    promo_report = champion_challenger.evaluate_and_promote()
+    return JSONResponse({
+        "status": "SUCCESS",
+        "training_samples": len(episodes),
+        "challenger_created": challenger is not None,
+        "report": promo_report
+    })
+
+
 async def get_stream_status(request):
     """Returns continuous live market data stream health."""
     from market_data.stream import market_streamer
@@ -1000,6 +1102,12 @@ routes = [
     Route("/api/ml/status", get_ml_status, methods=["GET"]),
     Route("/api/ml/retrain", trigger_ml_retrain, methods=["POST"]),
     Route("/api/ml/drift", get_drift_status, methods=["GET"]),
+    Route("/api/intelligence/snapshot", get_intelligence_snapshot, methods=["GET"]),
+    Route("/api/intelligence/alerts", get_intelligence_alerts, methods=["GET"]),
+    Route("/api/intelligence/headline", post_intelligence_headline, methods=["POST"]),
+    Route("/api/learning/episodes", get_learning_episodes, methods=["GET"]),
+    Route("/api/learning/champion", get_champion_status, methods=["GET"]),
+    Route("/api/learning/evaluate-challenger", evaluate_challenger_endpoint, methods=["POST"]),
     Route("/api/market-stream/status", get_stream_status, methods=["GET"]),
     Route("/api/costs/slippage", get_slippage_status, methods=["GET"]),
     Route("/api/soak/status", get_soak_status, methods=["GET"]),
