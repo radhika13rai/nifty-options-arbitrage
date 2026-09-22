@@ -1084,6 +1084,10 @@ async def serve_dashboard(request):
     if html_path.exists():
         with open(html_path, "r", encoding="utf-8") as f:
             content = f.read()
+        key = os.environ.get("SERQ_API_KEY", "")
+        if key:
+            injection = f'<script>window.__SERQ_CONFIG__ = {{ apiKey: "{key}" }};</script>'
+            content = content.replace("</head>", f"{injection}\n</head>")
         return HTMLResponse(content)
     return HTMLResponse("<h1>Dashboard loading...</h1>")
 

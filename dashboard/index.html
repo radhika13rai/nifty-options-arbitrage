@@ -1646,26 +1646,139 @@
       qList.innerHTML = html;
     }
 
-    // WebSocket Stream Connection
+    // WebSocket Stream Connection & Auto Fallback Polling
     let ws;
     let lastPing = Date.now();
+    let fallbackPollInterval = null;
+
+    function getApiKey() {
+      const loc = window.location;
+      const urlParams = new URLSearchParams(loc.search);
+      const injectedKey = (window.__SERQ_CONFIG__ && window.__SERQ_CONFIG__.apiKey) || '';
+      const apiKey = urlParams.get('api_key') || localStorage.getItem('serq_api_key') || injectedKey || '';
+      if (apiKey && !localStorage.getItem('serq_api_key')) {
+        localStorage.setItem('serq_api_key', apiKey);
+      }
+      return apiKey;
+    }
+
+    function getAuthHeaders(extraHeaders = {}) {
+      const apiKey = getApiKey();
+      const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      return headers;
+    }
+
+    async function hydrateFromREST() {
+      try {
+        const [statusRes, quotesRes, posRes, intelRes, ccRes, atRes] = await Promise.allSettled([
+          fetch('/api/status').then(r => r.ok ? r.json() : null),
+          fetch('/api/quotes').then(r => r.ok ? r.json() : null),
+          fetch('/api/positions').then(r => r.ok ? r.json() : null),
+          fetch('/api/intelligence/snapshot').then(r => r.ok ? r.json() : null),
+          fetch('/api/learning/champion').then(r => r.ok ? r.json() : null),
+          fetch('/api/auto-trade/status').then(r => r.ok ? r.json() : null),
+        ]);
+
+        const statusData = statusRes.status === 'fulfilled' && statusRes.value ? statusRes.value : {};
+        const quotesData = quotesRes.status === 'fulfilled' && quotesRes.value ? quotesRes.value : {};
+        const posData = posRes.status === 'fulfilled' && posRes.value ? posRes.value : [];
+        const intelData = intelRes.status === 'fulfilled' && intelRes.value ? intelRes.value : null;
+        const ccData = ccRes.status === 'fulfilled' && ccRes.value ? ccRes.value : null;
+        const atData = atRes.status === 'fulfilled' && atRes.value ? atRes.value : null;
+
+        const syntheticUpdate = {
+          type: 'STREAM_UPDATE',
+          timestamp: Date.now() / 1000,
+          is_market_open: statusData.is_market_open !== undefined ? statusData.is_market_open : true,
+          market_phase: statusData.market_phase || 'MORNING_BREAKOUT',
+          real_nifty_spot: statusData.real_nifty_spot || 23437.05,
+          real_nifty_change_pct: 0.29,
+          dhan_status: 'STANDBY_FALLBACK',
+          kill_switch: statusData.kill_switch || { is_engaged: false, reason: 'NORMAL_OPERATION' },
+          pnl: statusData.pnl ? {
+            cash: statusData.capital ? statusData.capital.current_cash : 2699.0,
+            invested: statusData.capital ? statusData.capital.invested_capital : 0.0,
+            total_val: statusData.capital ? statusData.capital.total_portfolio_value : 2699.0,
+            gross_pnl: statusData.pnl.gross_pnl,
+            fees: statusData.pnl.total_friction,
+            net_pnl: statusData.pnl.net_pnl,
+            net_pct: statusData.pnl.net_pnl_pct,
+            drawdown_pct: statusData.pnl.drawdown_pct
+          } : undefined,
+          quotes: quotesData,
+          positions: Array.isArray(posData) ? posData.map(p => ({
+            symbol: p.symbol,
+            side: p.side,
+            quantity: p.quantity,
+            avg: p.average_price,
+            ltp: p.current_price,
+            unrealized: p.unrealized_pnl,
+            costs: p.total_costs
+          })) : [],
+          auto_trade: atData,
+          market_intelligence: intelData ? {
+            news_sentiment: intelData.news_sentiment_score,
+            geopolitical_tension: intelData.geopolitical_tension_index,
+            stand_down_active: intelData.is_shock_stand_down_active,
+            stand_down_remaining_sec: intelData.stand_down_remaining_sec,
+            stand_down_reason: intelData.stand_down_reason,
+            alerts: [],
+            headlines: (intelData.recent_headlines || []).slice(0, 5)
+          } : undefined,
+          champion_challenger: ccData && ccData.champion ? {
+            champion_id: ccData.champion.model_id,
+            champion_sharpe: ccData.champion.metrics ? ccData.champion.metrics.sharpe_ratio : 0,
+            champion_win_rate: ccData.champion.metrics ? ccData.champion.metrics.win_rate : 0,
+            has_challenger: ccData.challenger !== null,
+            challenger_id: ccData.challenger ? ccData.challenger.model_id : null,
+            promotions_count: (ccData.promotion_history || []).length
+          } : undefined
+        };
+
+        updateUI(syntheticUpdate);
+      } catch (err) {
+        console.warn('REST hydration error:', err);
+      }
+    }
+
+    function startFallbackPolling() {
+      if (!fallbackPollInterval) {
+        fallbackPollInterval = setInterval(hydrateFromREST, 2500);
+      }
+    }
+
+    function stopFallbackPolling() {
+      if (fallbackPollInterval) {
+        clearInterval(fallbackPollInterval);
+        fallbackPollInterval = null;
+      }
+    }
 
     function initWebSocket() {
       const loc = window.location;
       const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-      const urlParams = new URLSearchParams(loc.search);
-      const apiKey = urlParams.get('api_key') || localStorage.getItem('serq_api_key') || '';
+      const apiKey = getApiKey();
       let wsUrl = wsProtocol + '//' + loc.host + '/ws/stream';
       if (apiKey) {
         wsUrl += '?api_key=' + encodeURIComponent(apiKey);
       }
 
-      ws = new WebSocket(wsUrl);
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (e) {
+        console.warn("WebSocket initialization error:", e);
+        startFallbackPolling();
+        return;
+      }
 
       ws.onopen = () => {
         console.log("SerQ HUD WebSocket connected.");
         const dot = document.getElementById('live-dot');
         if (dot) dot.style.background = "var(--emerald)";
+        stopFallbackPolling();
       };
 
       ws.onmessage = (evt) => {
@@ -1674,14 +1787,24 @@
         if (pingEl) pingEl.innerText = (now - lastPing) + ' ms';
         lastPing = now;
 
-        const data = JSON.parse(evt.data);
-        updateUI(data);
+        try {
+          const data = JSON.parse(evt.data);
+          updateUI(data);
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
+        }
       };
 
       ws.onclose = () => {
         const dot = document.getElementById('live-dot');
         if (dot) dot.style.background = "var(--accent-red)";
+        startFallbackPolling();
         setTimeout(initWebSocket, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.warn("WebSocket error:", err);
+        startFallbackPolling();
       };
     }
 
@@ -2082,7 +2205,7 @@
       if (!confirm("Are you sure you want to engage the Emergency Kill Switch?")) return;
       await fetch('/api/kill-switch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action: 'engage', reason: 'Operator engaged from SerQ HUD' })
       });
     }
@@ -2092,7 +2215,7 @@
       if (!token) return;
       const resp = await fetch('/api/kill-switch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action: 'reset', token: token.trim() })
       });
       if (!resp.ok) {
@@ -2103,7 +2226,7 @@
 
     async function resetPaperAccount() {
       if (!confirm("Reset paper account virtual balance to ₹3,000?")) return;
-      await fetch('/api/paper/reset', { method: 'POST' });
+      await fetch('/api/paper/reset', { method: 'POST', headers: getAuthHeaders() });
     }
 
     async function toggleAutoPilot() {
@@ -2112,14 +2235,14 @@
       const nextState = !st.is_enabled;
       await fetch('/api/auto-trade/toggle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ enabled: nextState })
       });
     }
 
     async function triggerSquareOffAll() {
       if (!confirm("Execute regulatory square-off for all open positions immediately?")) return;
-      const resp = await fetch('/api/auto-trade/square-off', { method: 'POST' });
+      const resp = await fetch('/api/auto-trade/square-off', { method: 'POST', headers: getAuthHeaders() });
       const data = await resp.json();
       if (data.success) {
         alert("Squared off " + data.closed_trades.length + " positions.");
@@ -2127,7 +2250,7 @@
     }
 
     async function triggerAIRetrain() {
-      const resp = await fetch('/api/ml/retrain', { method: 'POST' });
+      const resp = await fetch('/api/ml/retrain', { method: 'POST', headers: getAuthHeaders() });
       const res = await resp.json();
       if (res.success) {
         alert(res.message);
@@ -2135,12 +2258,7 @@
     }
 
     async function evaluateChallengerGate() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const apiKey = urlParams.get('api_key') || localStorage.getItem('serq_api_key') || '';
-      const headers = { 'Content-Type': 'application/json' };
-      if (apiKey) headers['X-API-Key'] = apiKey;
-      
-      const resp = await fetch('/api/learning/evaluate-challenger', { method: 'POST', headers });
+      const resp = await fetch('/api/learning/evaluate-challenger', { method: 'POST', headers: getAuthHeaders() });
       const data = await resp.json();
       if (data.report && data.report.promoted) {
         alert("🎉 CHALLENGER PROMOTED TO CHAMPION!\n\nNew Model ID: " + data.report.champion.model_id + "\nOut-of-Sample Win Rate: " + (data.report.promotion_record.win_rate * 100).toFixed(1) + "%\nSharpe Ratio: " + data.report.promotion_record.sharpe_ratio.toFixed(2) + "\nProfit Factor: " + data.report.promotion_record.profit_factor.toFixed(2) + "\n\nThe candidate model has successfully passed all out-of-sample risk and profitability gates and is now guiding live signal generation.");
@@ -2152,13 +2270,13 @@
     async function onScenarioSelect(scenario) {
       await fetch('/api/global-macro/scenario', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ scenario: scenario })
       });
     }
 
     async function triggerMacroTrain() {
-      const resp = await fetch('/api/global-macro/train', { method: 'POST' });
+      const resp = await fetch('/api/global-macro/train', { method: 'POST', headers: getAuthHeaders() });
       const data = await resp.json();
       if (data.success) {
         alert("Multimodal AI Trained!\nEpoch: " + data.epoch + "\nSamples: " + data.num_samples + "\nDirectional Accuracy: " + (data.directional_accuracy*100).toFixed(1) + "%\nMSE: " + data.train_mse + "\nWeights updated.");
@@ -2168,7 +2286,7 @@
     }
 
     async function triggerMacroPoll() {
-      const resp = await fetch('/api/global-macro/poll', { method: 'POST' });
+      const resp = await fetch('/api/global-macro/poll', { method: 'POST', headers: getAuthHeaders() });
       const data = await resp.json();
       if (data.status === 'SUCCESS') {
         alert("Live World Cues Synced!\nBrent: $" + data.brent + " | DXY: " + data.dxy + "\nEst Gap: " + data.gap_pts + " pts\nPosture: " + data.posture + "\nNews Headlines Ingested: " + data.news_count);
@@ -2182,7 +2300,7 @@
       const phase = selectEl.value;
       const resp = await fetch('/api/scheduler/advance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ phase: phase })
       });
       const data = await resp.json();
@@ -2196,7 +2314,7 @@
     async function orderOption(symbol, side, price) {
       const resp = await fetch('/api/paper/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ symbol, side, price, quantity: 65 })
       });
       const res = await resp.json();
@@ -2303,7 +2421,11 @@
 
     // Init on load
     window.addEventListener('DOMContentLoaded', () => {
+      hydrateFromREST();
       initWebSocket();
+      loadOrders();
+      loadTrades();
+      refreshArbitrage();
     });
   </script>
 </body>

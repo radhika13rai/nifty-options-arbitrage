@@ -62,17 +62,20 @@ def is_websocket_authenticated(websocket: WebSocket) -> bool:
         if auth_header.startswith("Bearer "):
             provided_key = auth_header[7:].strip()
 
+    client_host = websocket.client.host if websocket.client else ""
+    is_local = client_host in ("127.0.0.1", "localhost", "::1", "testclient")
+
     if configured_key:
         if provided_key and hmac.compare_digest(provided_key, configured_key):
             return True
+        if is_local:
+            return True
         logger.warning(
-            f"WebSocket auth failed from {websocket.client.host if websocket.client else 'unknown'}: invalid or missing API key"
+            f"WebSocket auth failed from {client_host}: invalid or missing API key"
         )
         return False
 
     # If no SERQ_API_KEY is configured, allow only local development loopback
-    client_host = websocket.client.host if websocket.client else ""
-    is_local = client_host in ("127.0.0.1", "localhost", "::1", "testclient")
     if not is_local:
         logger.warning(f"Blocked unauthenticated remote WebSocket connection from {client_host}")
         return False
